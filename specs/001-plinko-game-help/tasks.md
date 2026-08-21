@@ -1,347 +1,443 @@
 # Tasks: Fantasy Football Plinko Draft Assistant
 
-**Branch**: `001-plinko-game-help` | **Date**: 2026-08-19 | **Plan**: [plan.md](./plan.md)
+**Branch**: `001-plinko-game-help` | **Date**: 2026-08-21 | **Plan**: [plan.md](./plan.md)
 
-All tasks follow the Red-Green-Refactor cycle mandated by constitution §II.
-Write the failing test first, make it pass with the minimal implementation, then refactor.
-
----
-
-## Phase 1 — Backend: Project Scaffold & ORM
-
-### T-001 — Backend project scaffold
-- Create `backend/` directory with `pyproject.toml` (uv-managed).
-- Declare dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `aiosqlite`, `httpx`.
-- Declare dev-dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `coverage`.
-- Create `backend/app/__init__.py`, `backend/app/main.py` (empty FastAPI app), `backend/app/db.py` (stub).
-- **Verify**: `uv run uvicorn app.main:app --port 8000` starts without error.
-
-### T-002 — ORM models (RED)
-- Write `backend/tests/test_orm.py`:
-  - Import all five SQLAlchemy models (`Player`, `PlayerCacheMeta`, `PlinkoSession`, `RosterSlot`, `DraftPicksCache`, `PlinkoRun`).
-  - Assert each model maps to its expected table name.
-  - Assert column names, types, and nullable constraints match `data-model.md`.
-- Run tests → all fail (models not yet defined).
-
-### T-003 — ORM models (GREEN)
-- Create `backend/app/models/orm.py` with all six SQLAlchemy declarative models per `data-model.md`:
-  - `players`, `player_cache_meta`, `plinko_sessions`, `roster_slots`, `draft_picks_cache`, `plinko_runs`.
-  - Add composite indexes: `(position, active)` on `players`; `(session_id, filled_at)` on `roster_slots`.
-  - Add unique constraints: `(session_id, slot_order)` on `roster_slots`; `(session_id, sleeper_player_id)` on `draft_picks_cache`.
-- Run `test_orm.py` → all pass.
-
-### T-004 — DB init & async session factory (RED)
-- Extend `test_orm.py` (or add `test_db.py`):
-  - Call `init_db()` and assert all tables exist in an in-memory SQLite database.
-  - Assert `PRAGMA foreign_keys` is ON for every new connection.
-- Run → fail.
-
-### T-005 — DB init & async session factory (GREEN)
-- Implement `backend/app/db.py`:
-  - `create_async_engine` with `aiosqlite`, database URL from env var `DATABASE_URL` (default `sqlite+aiosqlite:///./plinko.db`).
-  - `async_sessionmaker` factory.
-  - `init_db()` coroutine that runs `CREATE TABLE IF NOT EXISTS` via `metadata.create_all`.
-  - Event listener to emit `PRAGMA foreign_keys = ON` on each new connection.
-- Run tests → pass.
+All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the failing test first, then the minimum implementation to pass it, then refactor. No implementation task is considered complete until its tests pass and coverage gates are met.
 
 ---
 
-## Phase 2 — Backend: Sleeper Service
+## Phase A — Backend: Project Scaffold
 
-### T-006 — Sleeper client interface (RED)
-- Create `backend/tests/test_sleeper_service.py`.
-- Using `httpx` respx mock (or `unittest.mock`), write tests for:
-  - `get_draft(draft_id)` → parses `settings.slots_*`, returns a dict of `{position: count}` excluding bench.
-  - `get_draft_picks(draft_id)` → returns list of `sleeper_player_id` strings.
-  - `get_players()` → returns a dict of player objects keyed by `player_id`.
-  - `get_draft` raises `SleeperNotFoundError` when Sleeper returns 404.
-  - `get_draft` raises `SleeperUnavailableError` when connection fails.
-- Run → fail.
+### A-1 — Initialize backend project with `uv`
 
-### T-007 — Sleeper client (GREEN)
-- Create `backend/app/services/sleeper.py`:
-  - `httpx.AsyncClient` with base URL `https://api.sleeper.app/v1`.
-  - Implement `get_draft`, `get_draft_picks`, `get_players` as async functions.
-  - Define `SleeperNotFoundError` and `SleeperUnavailableError` custom exceptions.
-  - Map `slots_bn` (bench) to exclusion list so bench slots are stripped from `get_draft` output.
-- Run `test_sleeper_service.py` → all pass.
+**Acceptance**: `backend/pyproject.toml` exists, `uv sync` succeeds, `uv run python -c "import fastapi"` exits 0.
 
-### T-008 — Player cache sync logic (RED)
-- Add tests to `test_sleeper_service.py` (or new `test_availability.py`):
-  - `sync_players(db)` inserts new players and upserts existing ones; `player_cache_meta.last_synced_at` is updated.
-  - `ensure_players_fresh(db)` calls `sync_players` when `last_synced_at` is NULL or > 24 hours ago; skips otherwise.
-- Run → fail.
-
-### T-009 — Player cache sync logic (GREEN)
-- Implement `sync_players` and `ensure_players_fresh` in `backend/app/services/sleeper.py` (or a new `cache.py`).
-- Use SQLAlchemy upsert (`INSERT OR REPLACE` for SQLite).
-- Run tests → pass.
+- [ ] Create `backend/` directory.
+- [ ] Create `backend/pyproject.toml` declaring `[project]` metadata and dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `aiosqlite`, `httpx`.
+- [ ] Add dev dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `coverage`.
+- [ ] Configure `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` and `testpaths = ["tests"]`.
+- [ ] Run `uv sync` and confirm lock file is generated.
 
 ---
 
-## Phase 3 — Backend: API Routes
+### A-2 — Create backend application skeleton
 
-### T-010 — `POST /api/sessions` (RED)
-- Create `backend/tests/test_sessions.py` with an `AsyncClient` fixture pointing at the FastAPI app.
-- Test: valid `sleeper_draft_id` → 201, response body matches contract shape (id, roster_slots array).
-- Test: missing `sleeper_draft_id` → 400.
-- Test: Sleeper 404 → 404.
-- Test: Sleeper unreachable → 502.
-- Run → fail.
+**Acceptance**: `uvicorn app.main:app --port 8000` starts without errors and `GET /healthz` returns `200`.
 
-### T-011 — `POST /api/sessions` (GREEN)
-- Create `backend/app/api/sessions.py` with the `POST /api/sessions` route.
-- Wire `sleeper.get_draft` → create `plinko_sessions` row → seed `roster_slots` → call `get_draft_picks` → seed `draft_picks_cache` → call `ensure_players_fresh`.
-- Mount router in `backend/app/main.py`.
-- Run tests → pass.
-
-### T-012 — `GET /api/sessions/{id}` (RED)
-- Add test: existing session → 200, full slot list with player objects.
-- Add test: unknown session → 404.
-- Run → fail.
-
-### T-013 — `GET /api/sessions/{id}` (GREEN)
-- Add route handler; eager-load `roster_slots` → `player`.
-- Run tests → pass.
-
-### T-014 — `GET /api/sessions/{id}/positions` (RED)
-- Add test: returns only unfilled slots.
-- Add test: returns `[]` when all slots filled.
-- Run → fail.
-
-### T-015 — `GET /api/sessions/{id}/positions` (GREEN)
-- Add route; filter `roster_slots` where `filled_at IS NULL`.
-- Run tests → pass.
-
-### T-016 — `GET /api/sessions/{id}/players/{position}` (RED)
-- Create `backend/tests/test_players.py`.
-- Test: known position returns players not in `draft_picks_cache`, sorted by last/first name.
-- Test: FLEX returns union of RB + WR + TE.
-- Test: unknown position → 400.
-- Test: no open slot for position → 409.
-- Run → fail.
-
-### T-017 — `GET /api/sessions/{id}/players/{position}` (GREEN)
-- Create `backend/app/api/players.py`.
-- Implement availability query per `data-model.md` (parameterized IN clause, FLEX expansion).
-- Run tests → pass.
-
-### T-018 — `POST /api/sessions/{id}/position-pick` (RED)
-- Add tests to `test_sessions.py`:
-  - Valid slot → 200, returns `{run_id, position}`.
-  - Slot from different session → 404.
-  - Already-filled slot → 409.
-- Run → fail.
-
-### T-019 — `POST /api/sessions/{id}/position-pick` (GREEN)
-- Add route; validate slot ownership and open state; insert `plinko_runs` row with `board="position"`.
-- Run tests → pass.
-
-### T-020 — `POST /api/sessions/{id}/player-pick` (RED)
-- Add tests:
-  - Valid pick → 200, fills slot, returns player and `session_complete: false`.
-  - Last slot filled → `session_complete: true`, `completed_at` set on session.
-  - Player already in another slot → 409.
-  - Player in `draft_picks_cache` → 409.
-- Run → fail.
-
-### T-021 — `POST /api/sessions/{id}/player-pick` (GREEN)
-- Add route; validate slot + player availability; set `filled_at` + `player_id`; insert `plinko_runs`; check if all slots filled.
-- Run tests → pass.
-
-### T-022 — `POST /api/sessions/{id}/sync` (RED)
-- Add tests:
-  - Successful sync → 200, `{picks_synced, synced_at}`.
-  - Sleeper unreachable → 502 with last-known cache data.
-- Run → fail.
-
-### T-023 — `POST /api/sessions/{id}/sync` (GREEN)
-- Add route; call `get_draft_picks`; upsert `draft_picks_cache`; update `picks_last_synced_at`.
-- Run tests → pass.
-
-### T-024 — Backend coverage gate
-- Configure `pytest-cov` in `pyproject.toml` with `--cov=app --cov-fail-under=90`.
-- Confirm all tests pass and coverage gate is met.
-- Add structured JSON logging to FastAPI app (replace any `print`/`console.log` equivalents with Python `logging`).
+- [ ] Create `backend/app/__init__.py`.
+- [ ] Create `backend/app/main.py` with a bare `FastAPI()` instance and a `GET /healthz` route returning `{"status": "ok"}`.
+- [ ] Mount a placeholder `APIRouter` for `/api`.
+- [ ] Verify the server starts with `uv run uvicorn app.main:app --port 8000`.
 
 ---
 
-## Phase 4 — Frontend: Project Scaffold & Types
+## Phase B — Backend: ORM Models and DB Init (test-first)
 
-### T-025 — Frontend project scaffold
-- Create `frontend/` with `package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`.
-- Add dependencies: `phaser` (latest stable 4.x — verify release tag per research.md risk note).
-- Add dev-dependencies: `vite`, `typescript`, `vitest`, `@vitest/browser`.
-- Configure Vite dev-server proxy: `/api` → `http://localhost:8000`.
-- **Verify**: `npm run dev` starts; `npm run build` produces `dist/`.
+### B-1 — Write failing tests for ORM models
 
-### T-026 — TypeScript type definitions
-- Create `frontend/src/types/index.ts` with all interfaces and the `Position` union type per `data-model.md`:
-  - `Session`, `RosterSlot`, `Player`, `Position`, `PositionPickPayload`, `PlayerPickPayload`.
-- No tests required; types are validated at compile time (`tsc --noEmit`).
+**Acceptance**: `pytest tests/test_orm.py` collects tests and all fail with `ImportError` or `ModuleNotFoundError`.
 
-### T-027 — API service layer (RED)
-- Create `frontend/tests/services/api.test.ts`.
-- Mock `globalThis.fetch`; write tests for every function in `api.ts`:
-  - `createSession(draft_id)` → calls `POST /api/sessions`, returns `Session`.
-  - `getSession(id)` → `GET /api/sessions/{id}`.
-  - `getPositions(id)` → `GET /api/sessions/{id}/positions`, returns `RosterSlot[]`.
-  - `getPlayers(id, pos)` → `GET /api/sessions/{id}/players/{pos}`, returns `Player[]`.
-  - `postPositionPick(id, payload)` → `POST /api/sessions/{id}/position-pick`.
-  - `postPlayerPick(id, payload)` → `POST /api/sessions/{id}/player-pick`.
-  - `syncPicks(id)` → `POST /api/sessions/{id}/sync`.
-  - Each function throws a typed error on non-2xx responses.
-- Run (`npx vitest`) → fail.
+- [ ] Create `backend/tests/__init__.py`.
+- [ ] Create `backend/tests/test_orm.py` with tests asserting:
+  - Each model (`Player`, `PlayerCacheMeta`, `PlinkoSession`, `RosterSlot`, `DraftPicksCache`, `PlinkoRun`) is importable from `app.models.orm`.
+  - `Player` has columns: `id`, `sleeper_id`, `first_name`, `last_name`, `position`, `team`, `active`, `synced_at`.
+  - `RosterSlot` has a composite unique constraint on `(session_id, slot_order)`.
+  - `DraftPicksCache` has a composite unique constraint on `(session_id, sleeper_player_id)`.
 
-### T-028 — API service layer (GREEN)
-- Create `frontend/src/services/api.ts` implementing all seven typed fetch wrappers.
-- Run tests → pass.
+### B-2 — Implement ORM models (green)
 
----
+**Acceptance**: `pytest tests/test_orm.py` passes; `uv run python -c "from app.models.orm import Player"` exits 0.
 
-## Phase 5 — Frontend: Plinko Physics Entities
+- [ ] Create `backend/app/models/__init__.py`.
+- [ ] Create `backend/app/models/orm.py` with `DeclarativeBase` and all six SQLAlchemy models matching the data model in `data-model.md`.
+- [ ] Add `(position, active)` index on `Player`.
+- [ ] Add `(session_id, filled_at)` index on `RosterSlot`.
 
-### T-029 — `PlinkoBoard` unit tests (RED)
-- Create `frontend/tests/entities/PlinkoBoard.test.ts`.
-- Tests (headless, no Phaser renderer):
-  - `PlinkoBoard` constructor accepts a `slots: string[]` array and a `pegRows` count.
-  - `getPegPositions()` returns a grid of `{x, y}` objects; count = `pegRows * pegsPerRow` (verify formula).
-  - `getSlotBounds()` returns one bounding box per slot entry, evenly distributed across board width.
-  - All slot labels from `slots` are present in `getSlotBounds()` results.
-- Run → fail.
+### B-3 — Write failing tests for `db.py` (DB init)
 
-### T-030 — `PlinkoBoard` (GREEN)
-- Create `frontend/src/entities/PlinkoBoard.ts`.
-- Implement pure layout math (no Phaser dependency) for `getPegPositions` and `getSlotBounds`.
-- Run tests → pass.
+**Acceptance**: Test file collected, tests fail.
 
-### T-031 — `PlinkoBall` unit tests (RED)
-- Create `frontend/tests/entities/PlinkoBall.test.ts`.
-- Tests:
-  - `PlinkoBall` constructor stores a deterministic seed.
-  - `simulate(board: PlinkoBoard): string` returns a slot label present in `board.getSlotBounds()`.
-  - Same seed always returns the same slot label (determinism guarantee for SC-002 + tests).
-  - Simulation completes in ≤ 16 ms (performance budget SC-002) — measure with `performance.now()`.
-  - With no valid slot found before timeout, `simulate` still returns a slot label (fallback, FR-014).
-- Run → fail.
+- [ ] Create `backend/tests/test_db.py` asserting:
+  - `init_db()` is callable and creates all tables in a fresh in-memory SQLite database.
+  - `get_session()` is an async context manager that yields a live `AsyncSession`.
 
-### T-032 — `PlinkoBall` (GREEN)
-- Create `frontend/src/entities/PlinkoBall.ts`.
-- Implement a seeded pseudo-random physics simulation (no full Matter.js integration yet — use a lightweight deterministic path-tracing model that satisfies the ≤ 16 ms budget).
-- Run tests → pass.
+### B-4 — Implement `db.py` (green)
 
-### T-033 — `PlinkoBoard` + `PlinkoBall` refactor
-- Extract shared constants (board width, peg radius, slot height) to `frontend/src/entities/constants.ts`.
-- Ensure 100% branch coverage on physics/pick-resolution paths per constitution §III.
-- Run tests → pass; coverage report shows 100% on `entities/`.
+**Acceptance**: `pytest tests/test_db.py` passes.
+
+- [ ] Create `backend/app/db.py` with:
+  - Async engine configured from `DATABASE_URL` env var (default `sqlite+aiosqlite:///./data/plinko.db`).
+  - `PRAGMA foreign_keys = ON` on every connection via an `@event.listens_for(engine.sync_engine, "connect")` hook.
+  - `init_db()` async function calling `metadata.create_all`.
+  - `get_session()` async generator for use as a FastAPI dependency.
+- [ ] Wire `init_db()` call into `app.main` lifespan handler.
 
 ---
 
-## Phase 6 — Frontend: Phaser Scenes
+## Phase C — Backend: Sleeper Service (test-first)
 
-### T-034 — `BootScene`
-- Create `frontend/src/scenes/BootScene.ts`.
-- On `create()`: read `session_id` from `localStorage`; if present, transition to `PositionBoardScene`; otherwise transition to `SetupScene`.
-- No Phaser renderer test needed; scene logic is trivially unit-testable via a mock `this.scene.start`.
+### C-1 — Write failing tests for `sleeper.py`
 
-### T-035 — `SetupScene`
-- Create `frontend/src/scenes/SetupScene.ts`.
-- Render a DOM overlay (Phaser DOM element) with a `<input>` for `sleeper_draft_id` and a submit button.
-- On submit: call `api.createSession(draft_id)`, store `session.id` in `localStorage`, transition to `PositionBoardScene`.
-- Handle 400/404/502 errors with on-screen error text.
+**Acceptance**: Test file collected; all tests fail.
 
-### T-036 — `PositionBoardScene` (RED)
-- Add `frontend/tests/scenes/PositionBoardScene.test.ts` (Vitest browser mode or lightweight mock).
-- Test: given mocked `getPositions` returning 3 open slots, scene creates a `PlinkoBoard` with 3 slot labels.
-- Test: after `simulate()` resolves, `postPositionPick` is called with the correct `roster_slot_id`.
-- Test: scene transitions to `PlayerBoardScene` with the resolved position and slot id.
-- Test: if `getPositions` returns `[]`, scene displays draft-complete message (FR-012).
-- Run → fail.
+- [ ] Create `backend/tests/test_sleeper_service.py` with tests using `httpx` mock transport (or `respx`) to assert:
+  - `fetch_draft(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}` and returns a parsed dict.
+  - `fetch_picks(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and returns a list.
+  - `fetch_players()` calls `GET https://api.sleeper.app/v1/players/nfl` and returns a dict keyed by `player_id`.
+  - `fetch_draft` raises `httpx.HTTPStatusError` on 404; the caller receives a FastAPI `404` response.
+  - `fetch_draft` raises a `502`-equivalent on connection error.
 
-### T-037 — `PositionBoardScene` (GREEN)
-- Create `frontend/src/scenes/PositionBoardScene.ts`.
-- `preload()`: load peg and ball assets.
-- `create()`: fetch `getPositions`, build `PlinkoBoard` with position labels, render pegs + slot labels with Phaser GameObjects.
-- On user click/tap: instantiate `PlinkoBall`, animate drop (Phaser tween or Matter.js world), on outcome call `postPositionPick`, transition.
-- Run tests → pass.
+### C-2 — Implement `sleeper.py` (green)
 
-### T-038 — `PlayerBoardScene` (RED)
-- Add `frontend/tests/scenes/PlayerBoardScene.test.ts`.
-- Test: given mocked `getPlayers` for a position, scene creates a `PlinkoBoard` with player full-name labels.
-- Test: after `simulate()` resolves, `postPlayerPick` is called with correct `roster_slot_id` + `player_id`.
-- Test: scene transitions to `CongratsScene` with the resolved player object.
-- Run → fail.
+**Acceptance**: `pytest tests/test_sleeper_service.py` passes.
 
-### T-039 — `PlayerBoardScene` (GREEN)
-- Create `frontend/src/scenes/PlayerBoardScene.ts`.
-- On enter: call `api.syncPicks(session_id)` then `api.getPlayers(session_id, position)`.
-- Build `PlinkoBoard` from player list, animate ball, on outcome call `postPlayerPick`, pass player to `CongratsScene`.
-- Run tests → pass.
+- [ ] Create `backend/app/services/__init__.py`.
+- [ ] Create `backend/app/services/sleeper.py` with an `httpx.AsyncClient` (base URL `https://api.sleeper.app/v1`) and three async functions: `fetch_draft`, `fetch_picks`, `fetch_players`.
+- [ ] Map HTTP 404 → FastAPI `HTTPException(404)` and connection errors → `HTTPException(502)`.
 
-### T-040 — `CongratsScene`
-- Create `frontend/src/scenes/CongratsScene.ts`.
-- Display "Draft [first_name] [last_name]!" in large text centered on screen.
-- Provide a "Next Pick" button that returns to `PositionBoardScene`.
-- If `session_complete` flag is true, replace button with "Draft Complete!" message and clear `localStorage`.
+### C-3 — Write failing tests for `availability.py`
 
-### T-041 — `main.ts` bootstrap
-- Create `frontend/src/main.ts`:
-  - Configure `Phaser.Game` with Matter.js physics, all five scenes registered, canvas dimensions.
-  - Import `BootScene` as the first scene.
-- Run `npm run build` → zero TypeScript errors, bundle produced in `dist/`.
+**Acceptance**: Test file collected; tests fail.
+
+- [ ] Create `backend/tests/test_availability.py` asserting:
+  - `get_available_players(session, session_id, position)` returns only players matching the position (or FLEX union) whose `sleeper_id` is not in `draft_picks_cache` for that session.
+  - FLEX position correctly queries `position IN ("RB", "WR", "TE")`.
+  - Results are sorted `last_name ASC, first_name ASC`.
+
+### C-4 — Implement `availability.py` (green)
+
+**Acceptance**: `pytest tests/test_availability.py` passes.
+
+- [ ] Create `backend/app/services/availability.py` implementing the SQL query from `data-model.md § Availability Query Logic`.
+- [ ] Define `FLEX_POSITIONS = ("RB", "WR", "TE")` and `VALID_POSITIONS` constants.
 
 ---
 
-## Phase 7 — Docker Integration
+## Phase D — Backend: API Routes (test-first)
 
-### T-042 — `Dockerfile` (multi-stage)
-- Create `Dockerfile` at repo root.
-- Stage 1 `frontend-build`: `node:20-slim`, `COPY frontend/ .`, `npm ci && npm run build`.
-- Stage 2 `backend`: `python:3.12-slim`, install `uv`, `COPY backend/ .`, `uv sync --no-dev`, `COPY --from=frontend-build /app/dist ./static/`.
-- Configure `backend/app/main.py` to serve `static/` via `StaticFiles` mounted at `/`.
-- Expose port 8000; `CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
+### D-1 — Write failing tests for `POST /api/sessions`
 
-### T-043 — `docker-compose.yml`
-- Create `docker-compose.yml` at repo root.
-- Single service `plinko` using the `Dockerfile`.
-- Mount named volume `plinko_data` → `/data/`; set `DATABASE_URL=sqlite+aiosqlite:////data/plinko.db`.
-- Expose `8000:8000`.
-- **Verify**: `docker compose up --build` → app reachable at `http://localhost:8000`, SQLite file persists across `docker compose restart`.
+**Acceptance**: Test file collected; tests fail (route does not exist).
 
-### T-044 — `.gitignore` and repo hygiene
-- Ensure `.gitignore` excludes: `frontend/node_modules/`, `frontend/dist/`, `backend/.venv/`, `backend/uv.lock` (if generated), `*.db`, `__pycache__/`, `.pytest_cache/`, `coverage/`.
+- [ ] Create `backend/tests/test_sessions.py` with `httpx.AsyncClient(app=app)` tests for `POST /api/sessions`:
+  - `201` with valid `sleeper_draft_id` — response body matches contract shape (session + roster_slots).
+  - `400` when `sleeper_draft_id` is missing.
+  - `404` when Sleeper returns 404 (mock the sleeper service).
+  - `502` when Sleeper is unreachable.
+- [ ] Mock `sleeper.fetch_draft` to return a fixture with `settings.slots_qb: 1`, `slots_rb: 2`, `slots_wr: 2`, `slots_te: 1`, `slots_k: 1`, `slots_def: 1`.
+- [ ] Mock `sleeper.fetch_picks` to return an empty list.
+- [ ] Mock `sleeper.fetch_players` to return a minimal player dict.
+
+### D-2 — Implement `POST /api/sessions` (green)
+
+**Acceptance**: `pytest tests/test_sessions.py::test_create_session*` passes.
+
+- [ ] Create `backend/app/api/__init__.py`.
+- [ ] Create `backend/app/api/sessions.py` with the `POST /api/sessions` route implementing all five behavior steps from `contracts/api.md`.
+- [ ] Register the router in `app/main.py` under `/api`.
+
+### D-3 — Write failing tests for `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions`
+
+- [ ] Add tests to `test_sessions.py`:
+  - `GET /api/sessions/1` → `200` with full session + roster_slots (mix of filled/unfilled).
+  - `GET /api/sessions/999` → `404`.
+  - `GET /api/sessions/1/positions` → `200` array of only open slots.
+  - `GET /api/sessions/1/positions` → `[]` when all slots are filled.
+
+### D-4 — Implement `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions` (green)
+
+**Acceptance**: All new tests pass.
+
+- [ ] Add both routes to `backend/app/api/sessions.py`.
+
+### D-5 — Write failing tests for `GET /api/sessions/{id}/players/{pos}`
+
+- [ ] Create `backend/tests/test_players.py` with tests for:
+  - `200` returns player list filtered by position and excluding draft picks.
+  - FLEX returns union of RB, WR, TE.
+  - `400` on unknown position.
+  - `404` on unknown session.
+  - `409` when no open slot exists for that position.
+
+### D-6 — Implement `GET /api/sessions/{id}/players/{pos}` (green)
+
+**Acceptance**: `pytest tests/test_players.py` passes.
+
+- [ ] Create `backend/app/api/players.py` and register under `/api`.
+
+### D-7 — Write failing tests for `POST /api/sessions/{id}/position-pick`
+
+- [ ] Add tests to `test_sessions.py`:
+  - `200` returns `{run_id, position}` for a valid open slot.
+  - `409` when slot is already filled.
+  - `404` when slot ID does not belong to session.
+
+### D-8 — Implement `POST /api/sessions/{id}/position-pick` (green)
+
+**Acceptance**: All new tests pass.
+
+- [ ] Add route to `backend/app/api/sessions.py`.
+
+### D-9 — Write failing tests for `POST /api/sessions/{id}/player-pick`
+
+- [ ] Add tests:
+  - `200` returns `{run_id, player, session_complete: false}` for a valid pick.
+  - `session_complete: true` when this pick fills the last open slot.
+  - `409` when player already in `draft_picks_cache` for this session.
+  - `409` when slot already filled.
+
+### D-10 — Implement `POST /api/sessions/{id}/player-pick` (green)
+
+**Acceptance**: All new tests pass.
+
+- [ ] Add route; set `filled_at`, `player_id` on `RosterSlot`; set `completed_at` on session when all slots are filled.
+
+### D-11 — Write failing tests for `POST /api/sessions/{id}/sync`
+
+- [ ] Add tests:
+  - `200` returns `{picks_synced, synced_at}`.
+  - On Sleeper 502, returns `200` with cached count (non-fatal).
+
+### D-12 — Implement `POST /api/sessions/{id}/sync` (green)
+
+**Acceptance**: All new tests pass.
+
+- [ ] Add route; upsert `draft_picks_cache` rows; update `picks_last_synced_at` on session.
 
 ---
 
-## Phase 8 — CI Pipeline
+## Phase E — Frontend: Project Scaffold
 
-### T-045 — GitHub Actions workflow
-- Create `.github/workflows/ci.yml`.
-- Jobs (run in order, each depends on the prior):
-  1. **lint-backend**: `ruff check app/ tests/` (add `ruff` to dev dependencies).
-  2. **typecheck-frontend**: `npm run build` (tsc strict mode catches all type errors).
-  3. **test-backend**: `uv run pytest --cov=app --cov-fail-under=90`.
-  4. **test-frontend**: `npx vitest run --coverage` with coverage threshold ≥ 90%; physics/pick-resolution paths must show 100%.
-  5. **docker-build**: `docker compose build` (no push).
-- Trigger: `push` and `pull_request` on `001-plinko-game-help` and `main`.
+### E-1 — Initialize frontend project with Vite + TypeScript
 
-### T-046 — Performance regression guard
-- Add a Vitest test in `frontend/tests/entities/PlinkoBall.test.ts` (already started in T-031) that asserts simulation time ≤ 16 ms over 1000 runs.
-- Add a pytest benchmark (or timing assertion) in `test_players.py` that the availability query returns in ≤ 100 ms against a 5,000-player fixture.
+**Acceptance**: `npm run dev` starts Vite dev server; `npm run build` produces `dist/`.
+
+- [ ] Create `frontend/` directory.
+- [ ] Run `npm create vite@latest frontend -- --template vanilla-ts` (or create `package.json` manually).
+- [ ] Add dependencies: `phaser` (verify latest stable 4.x tag per research.md risk note before pinning).
+- [ ] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
+- [ ] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
+- [ ] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000`.
 
 ---
 
-## Task Summary
+## Phase F — Frontend: Types and API Service Layer (test-first)
 
-| Phase | Tasks | Focus |
-|---|---|---|
-| 1 — Backend Scaffold & ORM | T-001 – T-005 | Project setup, models, DB init |
-| 2 — Sleeper Service | T-006 – T-009 | HTTP client, player cache |
-| 3 — Backend API Routes | T-010 – T-024 | All 7 endpoints + coverage gate |
-| 4 — Frontend Scaffold & Types | T-025 – T-028 | Vite, types, API service layer |
-| 5 — Physics Entities | T-029 – T-033 | `PlinkoBoard`, `PlinkoBall`, 100% coverage |
-| 6 — Phaser Scenes | T-034 – T-041 | All 5 scenes, full wiring |
-| 7 — Docker | T-042 – T-044 | Multi-stage image, compose, gitignore |
-| 8 — CI | T-045 – T-046 | GitHub Actions, perf regression guard |
+### F-1 — Write failing tests for `api.ts`
 
-**Total tasks**: 46
+**Acceptance**: `npm test` collects tests; all fail (module not found).
+
+- [ ] Create `frontend/tests/services/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
+  - `createSession(draft_id)` posts to `POST /api/sessions` and returns a `Session`.
+  - `getSession(id)` fetches `GET /api/sessions/{id}` and returns a `Session`.
+  - `getOpenPositions(id)` fetches `GET /api/sessions/{id}/positions` and returns `RosterSlot[]`.
+  - `getPlayers(id, pos)` fetches the correct URL and returns `Player[]`.
+  - `recordPositionPick(id, slot_id)` posts to `position-pick` and returns `{run_id, position}`.
+  - `recordPlayerPick(id, slot_id, player_id)` posts to `player-pick`.
+  - `syncPicks(id)` posts to `sync`.
+  - All functions throw on non-2xx responses.
+
+### F-2 — Implement `types/index.ts` and `services/api.ts` (green)
+
+**Acceptance**: `npm test` — all api.test.ts tests pass.
+
+- [ ] Create `frontend/src/types/index.ts` with all interfaces and the `Position` type from `data-model.md § Frontend`.
+- [ ] Create `frontend/src/services/api.ts` with typed `fetch` wrappers for all seven endpoints.
+
+---
+
+## Phase G — Frontend: Plinko Physics Entities (test-first)
+
+### G-1 — Write failing tests for `PlinkoBoard`
+
+**Acceptance**: Tests collected; all fail.
+
+- [ ] Create `frontend/tests/entities/PlinkoBoard.test.ts` asserting:
+  - `PlinkoBoard` constructor accepts a slot count and returns an object.
+  - `getPegPositions()` returns `n` rows of staggered pegs within board bounds.
+  - `getSlotBounds(index)` returns `{x, y, width}` for each bottom slot.
+  - Slot count matches the number of openings (e.g., 6 positions → 6 slots).
+  - Board width and height are configurable via constructor options.
+
+### G-2 — Implement `PlinkoBoard` entity (green)
+
+**Acceptance**: `npm test` — all PlinkoBoard tests pass.
+
+- [ ] Create `frontend/src/entities/PlinkoBoard.ts`.
+- [ ] Implement peg layout algorithm: triangular grid, alternating row offsets, configurable `rows`, `pegsPerRow`, `pegRadius`.
+- [ ] Implement `getSlotBounds(index)` for even slot distribution across board width.
+
+### G-3 — Write failing tests for `PlinkoBall`
+
+**Acceptance**: Tests collected; all fail.
+
+- [ ] Create `frontend/tests/entities/PlinkoBall.test.ts` asserting:
+  - `PlinkoBall` accepts a seed and deterministically resolves to the same slot index on repeated runs with the same seed.
+  - `drop(board)` returns a slot index within `[0, slotCount - 1]`.
+  - Fallback resolver fires if the ball has not exited within the physics timeout (≤ 16 ms simulation time).
+  - Simulation time for a single drop is recorded and is within budget.
+
+### G-4 — Implement `PlinkoBall` entity (green)
+
+**Acceptance**: `npm test` — all PlinkoBall tests pass; simulation budget verified.
+
+- [ ] Create `frontend/src/entities/PlinkoBall.ts`.
+- [ ] Use Phaser's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
+- [ ] Implement the fallback resolver: if no exit is detected within 16 ms of simulation time, resolve to `Math.floor(seededRandom() * slotCount)`.
+
+---
+
+## Phase H — Frontend: Phaser Scenes
+
+### H-1 — `BootScene` — load assets and restore session
+
+**Acceptance**: Manual smoke test: app loads in browser; existing `session_id` from `localStorage` is forwarded to `SetupScene` or skipped.
+
+- [ ] Create `frontend/src/scenes/BootScene.ts`.
+- [ ] Preload any graphic/audio assets (placeholder sprites acceptable at this stage).
+- [ ] Read `session_id` from `localStorage`; pass to next scene via `scene.start("Setup", { session_id })`.
+
+### H-2 — `SetupScene` — draft ID entry form
+
+**Acceptance**: User can type a Sleeper draft ID, submit the form, and the app calls `POST /api/sessions`.
+
+- [ ] Create `frontend/src/scenes/SetupScene.ts`.
+- [ ] Render a DOM input and submit button using Phaser's DOM layer (`this.add.dom`).
+- [ ] On submit, call `api.createSession(draft_id)`, store `session.id` in `localStorage`, then start `PositionBoardScene`.
+- [ ] Show an error message if the API returns `404` or `502`.
+
+### H-3 — `PositionBoardScene` — first plinko board
+
+**Acceptance**: Position board renders with correct number of slots matching open roster positions; ball drop resolves and transitions to player board.
+
+- [ ] Create `frontend/src/scenes/PositionBoardScene.ts`.
+- [ ] On `create`, call `api.getOpenPositions(session_id)` and construct a `PlinkoBoard` with `slotCount = openSlots.length`.
+- [ ] Render pegs (circles) and slot labels (position names) using Phaser graphics.
+- [ ] On user click/tap, instantiate `PlinkoBall`, call `drop(board)`, animate ball falling through pegs.
+- [ ] On ball exit, call `api.recordPositionPick(session_id, openSlots[slotIndex].id)`.
+- [ ] Transition to `PlayerBoardScene` passing `{session_id, roster_slot_id, position}`.
+- [ ] If `getOpenPositions` returns `[]`, show draft-complete state (FR-012).
+
+### H-4 — `PlayerBoardScene` — second plinko board
+
+**Acceptance**: Player board renders with available players; ball drop shows `CongratsScene` with correct player name.
+
+- [ ] Create `frontend/src/scenes/PlayerBoardScene.ts`.
+- [ ] On `create`, call `api.syncPicks(session_id)` then `api.getPlayers(session_id, position)`.
+- [ ] Construct `PlinkoBoard` with `slotCount = players.length` (cap display at a configurable max if many players).
+- [ ] Render player name labels on slots.
+- [ ] On ball exit, call `api.recordPlayerPick(session_id, roster_slot_id, players[slotIndex].id)`.
+- [ ] Transition to `CongratsScene` passing player data and `session_complete` flag.
+- [ ] Handle edge case: if `players.length === 0`, show error and return to `PositionBoardScene` (FR spec: invalid state guard).
+
+### H-5 — `CongratsScene` — draft confirmation overlay
+
+**Acceptance**: Player name is displayed; dismissing returns to `PositionBoardScene` or shows draft-complete message.
+
+- [ ] Create `frontend/src/scenes/CongratsScene.ts`.
+- [ ] Display "Draft [First Last]!" text prominently.
+- [ ] Show "Draft Complete!" variant when `session_complete === true`.
+- [ ] Provide a dismiss button; on dismiss start `PositionBoardScene` (unless complete).
+
+### H-6 — `main.ts` — Phaser bootstrap
+
+**Acceptance**: `npm run dev` renders the game in Chrome/Firefox without console errors.
+
+- [ ] Create `frontend/src/main.ts` instantiating `Phaser.Game` with `Matter` physics, all scenes registered, and responsive canvas sizing.
+- [ ] Create `frontend/index.html` loading the Vite entry point.
+
+---
+
+## Phase I — Docker Integration
+
+### I-1 — Write failing Docker smoke test
+
+**Acceptance**: Test script exists and fails because `Dockerfile` does not yet exist.
+
+- [ ] Create `.github/scripts/smoke_test.sh` that:
+  1. Runs `docker compose up --build -d`.
+  2. Polls `http://localhost:8000/healthz` until `200` or 30-second timeout.
+  3. Exits non-zero on timeout.
+
+### I-2 — Create multi-stage `Dockerfile` (green)
+
+**Acceptance**: `docker compose up --build` succeeds; smoke test passes; `GET /healthz` returns `200`; `GET /` returns the Vite index.html.
+
+- [ ] Create `Dockerfile` with two stages:
+  - **Stage 1** `frontend-build`: `node:20-slim`, runs `npm ci && npm run build` in `frontend/`, outputs `dist/`.
+  - **Stage 2** `backend`: `python:3.12-slim`, installs `uv`, runs `uv sync --no-dev`, copies `frontend/dist/` to `backend/static/`.
+- [ ] Mount `backend/static/` via `StaticFiles` in `app/main.py` (serve frontend bundle and catch-all for SPA routing).
+- [ ] Set `CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
+
+### I-3 — Create `docker-compose.yml`
+
+**Acceptance**: `docker compose up` starts the service; named volume persists SQLite across `docker compose restart`.
+
+- [ ] Create `docker-compose.yml` with one service `plinko` exposing port `8000`.
+- [ ] Mount a named volume `plinko_data` at `/data/` inside the container.
+- [ ] Set `DATABASE_URL=sqlite+aiosqlite:////data/plinko.db` as an environment variable.
+
+---
+
+## Phase J — CI Pipeline
+
+### J-1 — Create backend CI job
+
+**Acceptance**: `.github/workflows/ci.yml` exists; `pytest` step runs and coverage gate ≥ 100% for physics and pick-resolution code paths.
+
+- [ ] Create `.github/workflows/ci.yml` with a `backend` job:
+  1. Checkout.
+  2. Set up Python 3.12 + `uv`.
+  3. `uv sync`.
+  4. `uv run pytest --cov=app --cov-fail-under=80` (adjust threshold per constitution §III; physics and pick paths at 100%).
+  5. Upload coverage report as artifact.
+
+### J-2 — Create frontend CI job
+
+**Acceptance**: `npm test` runs in CI; coverage gate enforced.
+
+- [ ] Add `frontend` job to CI:
+  1. Set up Node 20.
+  2. `npm ci`.
+  3. `npm run typecheck` (`tsc --noEmit`).
+  4. `npm test -- --coverage --reporter=verbose`.
+  5. Upload coverage report.
+
+### J-3 — Add lint and type-check steps
+
+**Acceptance**: CI fails on type errors or lint violations.
+
+- [ ] Backend: add `ruff check app/ tests/` and `pyright` (or `mypy`) steps.
+- [ ] Frontend: `npm run typecheck` already included in J-2; add `eslint` if configured.
+
+### J-4 — Add Docker build step to CI
+
+**Acceptance**: CI builds the Docker image and runs the smoke test on every push.
+
+- [ ] Add `docker` job to CI depending on `backend` and `frontend` jobs:
+  1. `docker compose build`.
+  2. Run `smoke_test.sh`.
+
+---
+
+## Refactor Milestones (do after each phase's tests are green)
+
+| After phase | Refactor target |
+|---|---|
+| B | Extract `Base = DeclarativeBase()` to `app/models/base.py` if models grow |
+| C | Extract Sleeper base URL to a config module |
+| D | Consolidate common 404/409 guard logic into a shared `get_or_404` helper |
+| G | Extract physics constants (`PEG_RADIUS`, `BALL_RADIUS`, `GRAVITY`) to a `constants.ts` |
+| H | Extract scene-transition helpers to a `SceneManager` utility |
+
+---
+
+## Task Completion Checklist
+
+Before marking any task group done, verify:
+
+- [ ] All tests for that group pass (`pytest` or `npm test`).
+- [ ] No `console.log` / `print` statements in production paths.
+- [ ] TypeScript: `tsc --noEmit` exits 0.
+- [ ] Python: `ruff check` exits 0.
+- [ ] Coverage gate not regressed.

@@ -96,7 +96,7 @@ Before the draft begins the user can specify which roster positions need to be f
 - **FR-008**: System MUST remove a player from all future player boards once that player has been selected.
 - **FR-009**: System MUST persist draft state (filled positions, drafted players) across multiple drop cycles within the same session.
 - **FR-010**: System MUST allow the user to configure the roster slot composition (position name + count) before starting the draft.
-- **FR-011**: System MUST allow the user to supply an available player list per position before starting the draft.
+- **FR-011**: System MUST allow the user to supply an active draft on Sleeper to supply an available player list per position before starting the draft
 - **FR-012**: System MUST indicate when the draft is complete (all roster slots filled) and prevent additional drops.
 - **FR-013**: System MUST recover draft state from local/session storage if the page is refreshed mid-session.
 - **FR-014**: System MUST enforce a fallback resolution if the ball fails to exit through any opening within the physics simulation timeout.
@@ -118,7 +118,6 @@ Before the draft begins the user can specify which roster positions need to be f
 - **SC-003**: After N rounds, exactly N positions are marked filled and exactly N players are absent from future boards, with zero duplicates or omissions.
 - **SC-004**: 100% of player board openings correspond to valid, undrafted players for the resolved position — no stale or duplicate entries appear.
 - **SC-005**: Draft state survives a hard page refresh; the user can resume from exactly the same point without data loss.
-- **SC-006**: The complete flow (configure → draft → congrats) can be demonstrated end-to-end without a backend — state is managed entirely client-side.
 
 ## Assumptions
 
