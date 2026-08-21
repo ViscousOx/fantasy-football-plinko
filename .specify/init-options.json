@@ -5,5 +5,5 @@
   "here": true,
   "integration": "copilot",
   "script": "py",
-  "speckit_version": "0.16.4"
+  "speckit_version": "1.0.1"
 }
