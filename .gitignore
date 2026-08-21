@@ -1,1 +1,9 @@
 .github
+frontend/node_modules
+frontend/dist/
+backend/.venv
+*.db
+__pycache__/
+.pytest_cache/
+coverage/
+*.log
