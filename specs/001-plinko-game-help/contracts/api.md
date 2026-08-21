@@ -194,6 +194,9 @@ Re-poll Sleeper for the latest draft picks and update `draft_picks_cache`. Call 
 
 **Request body**: empty (`{}` acceptable)
 
+**Behavior**:
+- `502` — Sleeper API unreachable; returns last-known cached data (client continues normally).
+
 **Response `200 OK`**:
 ```json
 {
@@ -204,7 +207,6 @@ Re-poll Sleeper for the latest draft picks and update `draft_picks_cache`. Call 
 
 **Errors**:
 - `404` — Session not found.
-- `502` — Sleeper API unreachable; returns last-known cached data (client continues normally).
 
 ---
 

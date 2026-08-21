@@ -148,7 +148,8 @@ SQLite (single file, volume-mounted in Docker)
   ├── players           (Sleeper player cache)
   ├── plinko_sessions
   ├── roster_slots
-  ├── session_picks
+  ├── draft_picks_cache
+  ├── plinko_runs
   └── player_cache_meta (last-synced timestamp)
 ```
 
@@ -156,4 +157,4 @@ SQLite (single file, volume-mounted in Docker)
 
 ## Spec Assumption Override
 
-The original spec (SC-006) assumes the complete flow can run without a backend. The user has explicitly requested a FastAPI backend for this implementation. **SC-006 is superseded**: draft state is persisted in SQLite via the backend, and the frontend stores only a `session_id` in `localStorage` for reconnection. This is strictly more durable than `localStorage`-only state.
+Draft state is persisted in SQLite via the backend, and the frontend stores only a `session_id` in `localStorage` for reconnection. This is strictly more durable than `localStorage`-only state.

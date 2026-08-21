@@ -4,6 +4,21 @@
 
 All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the failing test first, then the minimum implementation to pass it, then refactor. No implementation task is considered complete until its tests pass and coverage gates are met.
 
+## User Story Traceability
+
+Tasks are organized by technical layer to enforce the test-first dependency order (backend before frontend, models before routes). The table below maps each phase to the spec user story it primarily delivers.
+
+| Phase(s) | Delivers | User Story | Priority |
+|---|---|---|---|
+| A, B, E, F | Backend + frontend scaffold, ORM, DB init | Foundational — blocks all US | — |
+| C-1, C-2, D-1, D-2, H-2 | Sleeper client, session creation, SetupScene | **US4** — Configurable Roster | P2 |
+| D-3, D-4, D-7, D-8, G-1–G-4, H-3 | `/positions` + `/position-pick` + physics + PositionBoardScene | **US1** — Position Board Drop | P1 |
+| D-5, D-6, D-9–D-12, H-4, H-5 | `/players/{pos}` + `/player-pick` + `/sync` + PlayerBoardScene + CongratsScene | **US2** — Player Selection | P1 |
+| B-3, B-4, D-3, D-4, H-1 | DB init, session-state endpoint, BootScene restore | **US3** — Persistent State | P2 |
+| I, J | Docker, CI | Infrastructure | — |
+
+**MVP path (P1 stories only)**: A → B → C → D-1–D-12 → E → F → G → H-1–H-6.
+
 ---
 
 ## Phase A — Backend: Project Scaffold
@@ -14,7 +29,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 
 - [ ] Create `backend/` directory.
 - [ ] Create `backend/pyproject.toml` declaring `[project]` metadata and dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `aiosqlite`, `httpx`.
-- [ ] Add dev dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `coverage`.
+- [ ] Add dev dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `respx`, `coverage`.
 - [ ] Configure `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` and `testpaths = ["tests"]`.
 - [ ] Run `uv sync` and confirm lock file is generated.
 
@@ -74,9 +89,9 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 
 ---
 
-## Phase C — Backend: Sleeper Service (test-first)
+## Phase C — Backend: Sleeper Service (test-first) · US4
 
-### C-1 — Write failing tests for `sleeper.py`
+### C-1 — Write failing tests for `sleeper.py` [US4]
 
 **Acceptance**: Test file collected; all tests fail.
 
@@ -87,7 +102,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - `fetch_draft` raises `httpx.HTTPStatusError` on 404; the caller receives a FastAPI `404` response.
   - `fetch_draft` raises a `502`-equivalent on connection error.
 
-### C-2 — Implement `sleeper.py` (green)
+### C-2 — Implement `sleeper.py` (green) [US4]
 
 **Acceptance**: `pytest tests/test_sleeper_service.py` passes.
 
@@ -95,7 +110,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] Create `backend/app/services/sleeper.py` with an `httpx.AsyncClient` (base URL `https://api.sleeper.app/v1`) and three async functions: `fetch_draft`, `fetch_picks`, `fetch_players`.
 - [ ] Map HTTP 404 → FastAPI `HTTPException(404)` and connection errors → `HTTPException(502)`.
 
-### C-3 — Write failing tests for `availability.py`
+### C-3 — Write failing tests for `availability.py` [US1, US2]
 
 **Acceptance**: Test file collected; tests fail.
 
@@ -104,7 +119,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - FLEX position correctly queries `position IN ("RB", "WR", "TE")`.
   - Results are sorted `last_name ASC, first_name ASC`.
 
-### C-4 — Implement `availability.py` (green)
+### C-4 — Implement `availability.py` (green) [US1, US2]
 
 **Acceptance**: `pytest tests/test_availability.py` passes.
 
@@ -113,9 +128,9 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 
 ---
 
-## Phase D — Backend: API Routes (test-first)
+## Phase D — Backend: API Routes (test-first) · US1, US2, US3, US4
 
-### D-1 — Write failing tests for `POST /api/sessions`
+### D-1 — Write failing tests for `POST /api/sessions` [US4]
 
 **Acceptance**: Test file collected; tests fail (route does not exist).
 
@@ -124,11 +139,11 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - `400` when `sleeper_draft_id` is missing.
   - `404` when Sleeper returns 404 (mock the sleeper service).
   - `502` when Sleeper is unreachable.
-- [ ] Mock `sleeper.fetch_draft` to return a fixture with `settings.slots_qb: 1`, `slots_rb: 2`, `slots_wr: 2`, `slots_te: 1`, `slots_k: 1`, `slots_def: 1`.
+- [ ] Mock `sleeper.fetch_draft` to return a fixture with `settings.slots_qb: 1`, `slots_rb: 2`, `slots_wr: 2`, `slots_te: 1`, `slots_flex: 1`, `slots_k: 1`, `slots_def: 1`.
 - [ ] Mock `sleeper.fetch_picks` to return an empty list.
 - [ ] Mock `sleeper.fetch_players` to return a minimal player dict.
 
-### D-2 — Implement `POST /api/sessions` (green)
+### D-2 — Implement `POST /api/sessions` (green) [US4]
 
 **Acceptance**: `pytest tests/test_sessions.py::test_create_session*` passes.
 
@@ -136,7 +151,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] Create `backend/app/api/sessions.py` with the `POST /api/sessions` route implementing all five behavior steps from `contracts/api.md`.
 - [ ] Register the router in `app/main.py` under `/api`.
 
-### D-3 — Write failing tests for `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions`
+### D-3 — Write failing tests for `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions` [US1, US3]
 
 - [ ] Add tests to `test_sessions.py`:
   - `GET /api/sessions/1` → `200` with full session + roster_slots (mix of filled/unfilled).
@@ -144,13 +159,13 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - `GET /api/sessions/1/positions` → `200` array of only open slots.
   - `GET /api/sessions/1/positions` → `[]` when all slots are filled.
 
-### D-4 — Implement `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions` (green)
+### D-4 — Implement `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions` (green) [US1, US3]
 
 **Acceptance**: All new tests pass.
 
 - [ ] Add both routes to `backend/app/api/sessions.py`.
 
-### D-5 — Write failing tests for `GET /api/sessions/{id}/players/{pos}`
+### D-5 — Write failing tests for `GET /api/sessions/{id}/players/{pos}` [US2]
 
 - [ ] Create `backend/tests/test_players.py` with tests for:
   - `200` returns player list filtered by position and excluding draft picks.
@@ -159,26 +174,26 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - `404` on unknown session.
   - `409` when no open slot exists for that position.
 
-### D-6 — Implement `GET /api/sessions/{id}/players/{pos}` (green)
+### D-6 — Implement `GET /api/sessions/{id}/players/{pos}` (green) [US2]
 
 **Acceptance**: `pytest tests/test_players.py` passes.
 
 - [ ] Create `backend/app/api/players.py` and register under `/api`.
 
-### D-7 — Write failing tests for `POST /api/sessions/{id}/position-pick`
+### D-7 — Write failing tests for `POST /api/sessions/{id}/position-pick` [US1]
 
 - [ ] Add tests to `test_sessions.py`:
   - `200` returns `{run_id, position}` for a valid open slot.
   - `409` when slot is already filled.
   - `404` when slot ID does not belong to session.
 
-### D-8 — Implement `POST /api/sessions/{id}/position-pick` (green)
+### D-8 — Implement `POST /api/sessions/{id}/position-pick` (green) [US1]
 
 **Acceptance**: All new tests pass.
 
 - [ ] Add route to `backend/app/api/sessions.py`.
 
-### D-9 — Write failing tests for `POST /api/sessions/{id}/player-pick`
+### D-9 — Write failing tests for `POST /api/sessions/{id}/player-pick` [US2]
 
 - [ ] Add tests:
   - `200` returns `{run_id, player, session_complete: false}` for a valid pick.
@@ -186,19 +201,19 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - `409` when player already in `draft_picks_cache` for this session.
   - `409` when slot already filled.
 
-### D-10 — Implement `POST /api/sessions/{id}/player-pick` (green)
+### D-10 — Implement `POST /api/sessions/{id}/player-pick` (green) [US2]
 
 **Acceptance**: All new tests pass.
 
 - [ ] Add route; set `filled_at`, `player_id` on `RosterSlot`; set `completed_at` on session when all slots are filled.
 
-### D-11 — Write failing tests for `POST /api/sessions/{id}/sync`
+### D-11 — Write failing tests for `POST /api/sessions/{id}/sync` [US2]
 
 - [ ] Add tests:
   - `200` returns `{picks_synced, synced_at}`.
   - On Sleeper 502, returns `200` with cached count (non-fatal).
 
-### D-12 — Implement `POST /api/sessions/{id}/sync` (green)
+### D-12 — Implement `POST /api/sessions/{id}/sync` (green) [US2]
 
 **Acceptance**: All new tests pass.
 
@@ -246,9 +261,9 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 
 ---
 
-## Phase G — Frontend: Plinko Physics Entities (test-first)
+## Phase G — Frontend: Plinko Physics Entities (test-first) · US1, US2
 
-### G-1 — Write failing tests for `PlinkoBoard`
+### G-1 — Write failing tests for `PlinkoBoard` [US1, US2]
 
 **Acceptance**: Tests collected; all fail.
 
@@ -259,7 +274,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - Slot count matches the number of openings (e.g., 6 positions → 6 slots).
   - Board width and height are configurable via constructor options.
 
-### G-2 — Implement `PlinkoBoard` entity (green)
+### G-2 — Implement `PlinkoBoard` entity (green) [US1, US2]
 
 **Acceptance**: `npm test` — all PlinkoBoard tests pass.
 
@@ -267,7 +282,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] Implement peg layout algorithm: triangular grid, alternating row offsets, configurable `rows`, `pegsPerRow`, `pegRadius`.
 - [ ] Implement `getSlotBounds(index)` for even slot distribution across board width.
 
-### G-3 — Write failing tests for `PlinkoBall`
+### G-3 — Write failing tests for `PlinkoBall` [US1, US2]
 
 **Acceptance**: Tests collected; all fail.
 
@@ -277,7 +292,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
   - Fallback resolver fires if the ball has not exited within the physics timeout (≤ 16 ms simulation time).
   - Simulation time for a single drop is recorded and is within budget.
 
-### G-4 — Implement `PlinkoBall` entity (green)
+### G-4 — Implement `PlinkoBall` entity (green) [US1, US2]
 
 **Acceptance**: `npm test` — all PlinkoBall tests pass; simulation budget verified.
 
@@ -287,9 +302,9 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 
 ---
 
-## Phase H — Frontend: Phaser Scenes
+## Phase H — Frontend: Phaser Scenes · US1, US2, US3, US4
 
-### H-1 — `BootScene` — load assets and restore session
+### H-1 — `BootScene` — load assets and restore session [US3]
 
 **Acceptance**: Manual smoke test: app loads in browser; existing `session_id` from `localStorage` is forwarded to `SetupScene` or skipped.
 
@@ -297,7 +312,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] Preload any graphic/audio assets (placeholder sprites acceptable at this stage).
 - [ ] Read `session_id` from `localStorage`; pass to next scene via `scene.start("Setup", { session_id })`.
 
-### H-2 — `SetupScene` — draft ID entry form
+### H-2 — `SetupScene` — draft ID entry form [US4]
 
 **Acceptance**: User can type a Sleeper draft ID, submit the form, and the app calls `POST /api/sessions`.
 
@@ -306,7 +321,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] On submit, call `api.createSession(draft_id)`, store `session.id` in `localStorage`, then start `PositionBoardScene`.
 - [ ] Show an error message if the API returns `404` or `502`.
 
-### H-3 — `PositionBoardScene` — first plinko board
+### H-3 — `PositionBoardScene` — first plinko board [US1]
 
 **Acceptance**: Position board renders with correct number of slots matching open roster positions; ball drop resolves and transitions to player board.
 
@@ -318,7 +333,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] Transition to `PlayerBoardScene` passing `{session_id, roster_slot_id, position}`.
 - [ ] If `getOpenPositions` returns `[]`, show draft-complete state (FR-012).
 
-### H-4 — `PlayerBoardScene` — second plinko board
+### H-4 — `PlayerBoardScene` — second plinko board [US2]
 
 **Acceptance**: Player board renders with available players; ball drop shows `CongratsScene` with correct player name.
 
@@ -330,7 +345,7 @@ All tasks follow the Red-Green-Refactor cycle (constitution §II). Write the fai
 - [ ] Transition to `CongratsScene` passing player data and `session_complete` flag.
 - [ ] Handle edge case: if `players.length === 0`, show error and return to `PositionBoardScene` (FR spec: invalid state guard).
 
-### H-5 — `CongratsScene` — draft confirmation overlay
+### H-5 — `CongratsScene` — draft confirmation overlay [US2]
 
 **Acceptance**: Player name is displayed; dismissing returns to `PositionBoardScene` or shows draft-complete message.
 

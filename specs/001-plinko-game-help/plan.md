@@ -56,12 +56,12 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 
 ```text
 specs/001-plinko-game-help/
-├── plan.md              ← this file
+├── plan.md              ← this file (Quickstart section embedded; no separate quickstart.md)
 ├── research.md          ← Phase 0 output
 ├── data-model.md        ← Phase 1 output
 ├── contracts/
 │   └── api.md           ← Phase 1 output
-└── tasks.md             ← Phase 2 output (/speckit-tasks — not created here)
+└── tasks.md             ← Phase 2 output (/speckit-tasks)
 ```
 
 ### Source Code (repository root)
@@ -108,9 +108,12 @@ fantasy-football-plinko/
 │   │   ├── db.py                     # async engine, session factory, init_db()
 │   │   └── main.py                   # FastAPI app, router mount, StaticFiles
 │   ├── tests/
+│   │   ├── test_orm.py
+│   │   ├── test_db.py
+│   │   ├── test_sleeper_service.py
+│   │   ├── test_availability.py
 │   │   ├── test_sessions.py
-│   │   ├── test_players.py
-│   │   └── test_sleeper_service.py
+│   │   └── test_players.py
 │   ├── pyproject.toml                # uv-managed; defines [project] + [tool.pytest]
 │   └── uv.lock
 │
@@ -148,7 +151,7 @@ Key findings:
 
 See [data-model.md](./data-model.md).
 
-Five SQLite tables:
+Six SQLite tables:
 | Table | Purpose |
 |---|---|
 | `players` | Sleeper player dictionary cache |
@@ -210,14 +213,14 @@ The Dockerfile:
 
 ## Phase 2 — Tasks
 
-> **Not yet generated.** Run `/speckit.tasks` to produce `tasks.md` from this plan.
+> **Generated** — see [`tasks.md`](./tasks.md) (created 2026-08-21 via `/speckit.tasks`).
 
-Tasks will follow the Red-Green-Refactor cycle mandated by constitution §II and will be ordered:
+Tasks follow the Red-Green-Refactor cycle mandated by constitution §II, ordered:
 1. Backend ORM models + DB init
 2. Sleeper service (httpx client + mocks)
 3. Backend API routes + contract tests
-4. Frontend type definitions + API service layer
+4. Frontend scaffold + type definitions + API service layer
 5. `PlinkoBoard` + `PlinkoBall` entities (physics, tests first)
 6. Phaser scenes wired to API
 7. Docker integration
-8. CI pipeline (lint → type-check → test → build)
+8. CI pipeline (backend tests → frontend tests → lint + type-check → Docker build)
