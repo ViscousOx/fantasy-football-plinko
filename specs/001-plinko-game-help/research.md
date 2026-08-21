@@ -33,7 +33,7 @@ No UI framework (React, Vue, etc.) is needed — Phaser's Canvas/WebGL renderer 
 
 **Rationale**:
 - FastAPI provides auto-generated OpenAPI docs and async request handling with minimal boilerplate.
-- SQLAlchemy's declarative ORM maps directly onto the five key entities from the spec; async SQLAlchemy (`AsyncSession`) keeps the I/O loop unblocked during Sleeper API proxy calls.
+- SQLAlchemy's declarative ORM maps directly onto the draft-session entities from the spec, with one additional metadata table for player-cache sync control; async SQLAlchemy (`AsyncSession`) keeps the I/O loop unblocked during Sleeper API proxy calls.
 - SQLite requires zero infrastructure — a single file on disk, ideal for single-user single-container deployment.
 - `uv` resolves and locks dependencies faster than pip/poetry and supports `uv run` for zero-install script execution during Docker builds.
 
@@ -104,12 +104,12 @@ The backend computes this set on demand and serves it to the frontend so the pli
 }
 ```
 
-The backend maps these counts to `RosterSlot` rows in the session, directly satisfying FR-010 (configurable roster composition) without user-manual input.
+The user starts by entering an active Sleeper `draft_id`. The backend maps the returned slot counts to `RosterSlot` rows in the session, directly satisfying FR-010 (configurable roster composition) without separate user-manual roster entry.
 
 ### Polling Strategy
 
 - **Player dictionary**: Fetched once per calendar day and stored in the DB (`players` table). Sleeper recommends no more than once-per-day; the 5MB payload is cached server-side and never sent to the browser.
-- **Draft picks**: Polled on every `GET /sessions/{id}/players/{pos}` request and on explicit `POST /sessions/{id}/sync`. Because this is a single-user tool and drafts typically last 30–90 minutes, a short TTL (e.g., 30 seconds) is sufficient to avoid stale availability.
+- **Draft picks**: Refreshed through explicit `POST /sessions/{id}/sync` calls before each player-board render. `GET /sessions/{id}/players/{pos}` reads only from the local cache populated by the latest sync. Because this is a single-user tool and drafts typically last 30–90 minutes, a short TTL (e.g., 30 seconds) is sufficient to prompt regular syncs without unnecessary Sleeper traffic.
 - **Rate limiting**: Sleeper's documented limit is 1000 calls/minute. With a 30-second pick TTL and one user, actual call rate is ~2 req/min — well within limits.
 
 ### FLEX Position Handling
@@ -157,4 +157,4 @@ SQLite (single file, volume-mounted in Docker)
 
 ## Spec Assumption Override
 
-Draft state is persisted in SQLite via the backend, and the frontend stores only a `session_id` in `localStorage` for reconnection. This is strictly more durable than `localStorage`-only state.
+Draft state is persisted in SQLite via the backend, and the frontend stores only a `session_id` in `localStorage` for reconnection after refresh.

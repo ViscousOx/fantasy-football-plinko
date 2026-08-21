@@ -79,8 +79,8 @@ Before the draft begins the user can specify which roster positions need to be f
 - What happens when only one player remains at a position? The player board shows a single opening; the ball lands there deterministically and the congratulatory message fires.
 - What happens when a position has no available players but is still needed on the roster? The system must flag this as an invalid state and prevent navigating to an empty player board.
 - What happens when all positions are filled mid-session? The draft-complete state is triggered immediately; no new position board is shown.
-- How does the system handle a plinko ball that gets "stuck" or fails to exit through any opening? A timeout or fallback mechanism randomly resolves a winner after a defined physics timeout (≤ 16 ms per the performance budget) to avoid hanging the UI.
-- What happens if the user refreshes or closes the app mid-draft? State must be recoverable from local/session storage so the draft can resume.
+- How does the system handle a plinko ball that gets "stuck" or fails to exit through any opening? A timeout or fallback mechanism randomly resolves a winner if the simulation cannot produce an outcome within the per-frame physics/update budget (≤ 16 ms) so the UI does not stall.
+- What happens if the user refreshes or closes the app mid-draft? State must be recoverable by reconnecting to the persisted draft session using a locally stored `session_id` so the draft can resume.
 
 ## Requirements *(mandatory)*
 
@@ -96,10 +96,10 @@ Before the draft begins the user can specify which roster positions need to be f
 - **FR-008**: System MUST remove a player from all future player boards once that player has been selected.
 - **FR-009**: System MUST persist draft state (filled positions, drafted players) across multiple drop cycles within the same session.
 - **FR-010**: System MUST allow the user to configure the roster slot composition (position name + count) before starting the draft.
-- **FR-011**: System MUST allow the user to supply an active draft on Sleeper to supply an available player list per position before starting the draft
+- **FR-011**: System MUST allow the user to enter an active Sleeper `draft_id` before starting the draft so the system can derive roster slots and available players per position.
 - **FR-012**: System MUST indicate when the draft is complete (all roster slots filled) and prevent additional drops.
-- **FR-013**: System MUST recover draft state from local/session storage if the page is refreshed mid-session.
-- **FR-014**: System MUST enforce a fallback resolution if the ball fails to exit through any opening within the physics simulation timeout.
+- **FR-013**: System MUST recover draft state after a page refresh by reconnecting to the persisted session using a locally stored `session_id`.
+- **FR-014**: System MUST enforce a fallback resolution if the ball fails to exit through any opening without producing an outcome within the per-frame physics/update budget, so the UI never stalls waiting on the simulation.
 
 ### Key Entities
 
@@ -114,7 +114,7 @@ Before the draft begins the user can specify which roster positions need to be f
 ### Measurable Outcomes
 
 - **SC-001**: A user can complete a full draft pick (position selection + player selection) in under 30 seconds from initiating the first drop to dismissing the congratulatory message.
-- **SC-002**: The plinko ball animation resolves and an opening is determined within ≤ 16 ms of simulation time (60 fps target per the project performance budget).
+- **SC-002**: Each plinko physics/update step stays within the ≤ 16 ms frame budget (60 fps target), and any unresolved drop is forced to a valid outcome by the fallback path without stalling the UI.
 - **SC-003**: After N rounds, exactly N positions are marked filled and exactly N players are absent from future boards, with zero duplicates or omissions.
 - **SC-004**: 100% of player board openings correspond to valid, undrafted players for the resolved position — no stale or duplicate entries appear.
 - **SC-005**: Draft state survives a hard page refresh; the user can resume from exactly the same point without data loss.
@@ -126,5 +126,5 @@ Before the draft begins the user can specify which roster positions need to be f
 - Standard scoring league roster formats are the primary use case (e.g., ESPN, Yahoo standard 9-slot rosters), but the configuration system must support any slot composition.
 - The FLEX position is treated as a special roster slot that accepts RB, WR, or TE players; the player board for FLEX shows all undrafted players across those position types.
 - Physics simulation uses a deterministic pseudo-random seed per drop so results are reproducible in tests but appear random to the user.
-- Local/session storage is sufficient for state persistence; no user account or server-side persistence is required.
+- Draft state is persisted server-side for durability, while the browser stores only the current `session_id` needed to reconnect after refresh.
 - Mobile support (responsive layout) is desirable but secondary to desktop functionality for v1.

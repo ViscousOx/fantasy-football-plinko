@@ -27,7 +27,7 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 **Project Type**: Web application — SPA frontend served by the backend
 
 **Performance Goals**:
-- Plinko simulation: single-drop ≤ 16 ms (constitution IV)
+- Plinko physics/update step: ≤ 16 ms per frame (constitution IV)
 - Time-to-Interactive: ≤ 3 s on median mobile (constitution IV)
 - Sleeper pick sync: ≤ 30-second TTL
 
@@ -47,7 +47,7 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 | I. Code Quality | PASS | Monorepo enforces single-responsibility; Phaser scenes map to discrete boards |
 | II. Test-First (NON-NEGOTIABLE) | PASS | All phases below specify tests-first before implementation |
 | III. Coverage Gates | PASS | Vitest + pytest coverage enforced in CI; physics and pick-resolution paths at 100% |
-| IV. Performance Budgets | PASS | Plinko ≤ 16 ms, TTI ≤ 3 s documented above; tracked in CI |
+| IV. Performance Budgets | PASS | Plinko physics/update step ≤ 16 ms per frame, TTI ≤ 3 s documented above; tracked in CI |
 | V. Observability | PASS | FastAPI structured JSON logging; no `console.log` in production builds |
 
 ## Project Structure
@@ -77,19 +77,18 @@ fantasy-football-plinko/
 │   │   │   ├── PlayerBoardScene.ts   # second plinko board
 │   │   │   └── CongratsScene.ts      # "Draft [Player]!" overlay
 │   │   ├── entities/
+│   │   │   ├── __tests__/
+│   │   │   │   ├── PlinkoBoard.test.ts
+│   │   │   │   └── PlinkoBall.test.ts
 │   │   │   ├── PlinkoBoard.ts        # peg layout, slot definitions, physics world
 │   │   │   └── PlinkoBall.ts         # Matter.js body wrapper, drop + outcome detection
 │   │   ├── services/
+│   │   │   ├── __tests__/
+│   │   │   │   └── api.test.ts
 │   │   │   └── api.ts                # typed fetch wrappers for all backend endpoints
 │   │   ├── types/
 │   │   │   └── index.ts              # Session, RosterSlot, Player, Position interfaces
 │   │   └── main.ts                   # Phaser.Game bootstrap
-│   ├── tests/
-│   │   ├── entities/
-│   │   │   ├── PlinkoBoard.test.ts
-│   │   │   └── PlinkoBall.test.ts
-│   │   └── services/
-│   │       └── api.test.ts
 │   ├── index.html
 │   ├── package.json
 │   ├── tsconfig.json
@@ -98,22 +97,25 @@ fantasy-football-plinko/
 ├── backend/
 │   ├── app/
 │   │   ├── api/
+│   │   │   ├── __tests__/
+│   │   │   │   ├── test_players.py
+│   │   │   │   └── test_sessions.py
 │   │   │   ├── sessions.py           # POST/GET /api/sessions, position-pick, player-pick, sync
 │   │   │   └── players.py            # GET /api/sessions/{id}/players/{pos}
 │   │   ├── models/
+│   │   │   ├── __tests__/
+│   │   │   │   └── test_orm.py
 │   │   │   └── orm.py                # SQLAlchemy declarative models
 │   │   ├── services/
+│   │   │   ├── __tests__/
+│   │   │   │   ├── test_availability.py
+│   │   │   │   └── test_sleeper_service.py
 │   │   │   ├── sleeper.py            # httpx client: draft metadata, picks, player dict
 │   │   │   └── availability.py       # available-player query logic
+│   │   ├── __tests__/
+│   │   │   └── test_db.py
 │   │   ├── db.py                     # async engine, session factory, init_db()
 │   │   └── main.py                   # FastAPI app, router mount, StaticFiles
-│   ├── tests/
-│   │   ├── test_orm.py
-│   │   ├── test_db.py
-│   │   ├── test_sleeper_service.py
-│   │   ├── test_availability.py
-│   │   ├── test_sessions.py
-│   │   └── test_players.py
 │   ├── pyproject.toml                # uv-managed; defines [project] + [tool.pytest]
 │   └── uv.lock
 │
@@ -128,7 +130,7 @@ fantasy-football-plinko/
 
 No constitution violations. The two-project structure (frontend + backend) is the minimum necessary because:
 - The Sleeper player dictionary (5MB) must be cached server-side — downloading it in the browser on every session would violate the ≤ 3 s TTI budget and Sleeper's usage guidelines.
-- SQLite persistence is required for FR-009 (state across rounds) and FR-013 (refresh recovery), which cannot be guaranteed by `localStorage` alone.
+- SQLite persistence is required for FR-009 (state across rounds) and FR-013 (refresh recovery), while `localStorage` stores only the reconnecting `session_id`.
 
 ---
 
@@ -138,8 +140,8 @@ See [research.md](./research.md).
 
 Key findings:
 - Sleeper REST API is public, read-only, no token required.
-- "Available draftable players" = active NFL players NOT in `GET /draft/{draft_id}/picks`.
-- Roster slot configuration is read directly from `draft.settings.slots_*`.
+- The user enters a Sleeper `draft_id`; roster slot configuration is read directly from `draft.settings.slots_*`.
+- Available draftable players are active NFL players absent from the locally cached results of `GET /draft/{draft_id}/picks`, refreshed explicitly through `POST /api/sessions/{id}/sync`.
 - FLEX requires a union query over RB + WR + TE.
 - Phaser 4 Stability: **verify the latest stable release tag before implementation begins** (see research.md risk note).
 

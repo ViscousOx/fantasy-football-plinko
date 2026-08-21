@@ -30,7 +30,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Create `backend/` directory.
 - [ ] Create `backend/pyproject.toml` declaring `[project]` metadata and dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `aiosqlite`, `httpx`.
 - [ ] Add dev dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `respx`, `coverage`.
-- [ ] Configure `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` and `testpaths = ["tests"]`.
+- [ ] Configure `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` and `testpaths = ["app"]` so co-located `__tests__/` directories are collected.
 - [ ] Run `uv sync` and confirm lock file is generated.
 
 ---
@@ -50,10 +50,10 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### B-1 — Write failing tests for ORM models
 
-**Acceptance**: `pytest tests/test_orm.py` collects tests and all fail with `ImportError` or `ModuleNotFoundError`.
+**Acceptance**: `pytest app/models/__tests__/test_orm.py` collects tests and all fail with `ImportError` or `ModuleNotFoundError`.
 
-- [ ] Create `backend/tests/__init__.py`.
-- [ ] Create `backend/tests/test_orm.py` with tests asserting:
+- [ ] Create `backend/app/models/__tests__/__init__.py`.
+- [ ] Create `backend/app/models/__tests__/test_orm.py` with tests asserting:
   - Each model (`Player`, `PlayerCacheMeta`, `PlinkoSession`, `RosterSlot`, `DraftPicksCache`, `PlinkoRun`) is importable from `app.models.orm`.
   - `Player` has columns: `id`, `sleeper_id`, `first_name`, `last_name`, `position`, `team`, `active`, `synced_at`.
   - `RosterSlot` has a composite unique constraint on `(session_id, slot_order)`.
@@ -61,7 +61,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### B-2 — Implement ORM models (green)
 
-**Acceptance**: `pytest tests/test_orm.py` passes; `uv run python -c "from app.models.orm import Player"` exits 0.
+**Acceptance**: `pytest app/models/__tests__/test_orm.py` passes; `uv run python -c "from app.models.orm import Player"` exits 0.
 
 - [ ] Create `backend/app/models/__init__.py`.
 - [ ] Create `backend/app/models/orm.py` with `DeclarativeBase` and all six SQLAlchemy models matching the data model in `data-model.md`.
@@ -72,13 +72,13 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Test file collected, tests fail.
 
-- [ ] Create `backend/tests/test_db.py` asserting:
+- [ ] Create `backend/app/__tests__/test_db.py` asserting:
   - `init_db()` is callable and creates all tables in a fresh in-memory SQLite database.
   - `get_session()` is an async context manager that yields a live `AsyncSession`.
 
 ### B-4 — Implement `db.py` (green)
 
-**Acceptance**: `pytest tests/test_db.py` passes.
+**Acceptance**: `pytest app/__tests__/test_db.py` passes.
 
 - [ ] Create `backend/app/db.py` with:
   - Async engine configured from `DATABASE_URL` env var (default `sqlite+aiosqlite:///./data/plinko.db`).
@@ -95,7 +95,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Test file collected; all tests fail.
 
-- [ ] Create `backend/tests/test_sleeper_service.py` with tests using `httpx` mock transport (or `respx`) to assert:
+- [ ] Create `backend/app/services/__tests__/test_sleeper_service.py` with tests using `httpx` mock transport (or `respx`) to assert:
   - `fetch_draft(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}` and returns a parsed dict.
   - `fetch_picks(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and returns a list.
   - `fetch_players()` calls `GET https://api.sleeper.app/v1/players/nfl` and returns a dict keyed by `player_id`.
@@ -104,7 +104,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### C-2 — Implement `sleeper.py` (green) [US4]
 
-**Acceptance**: `pytest tests/test_sleeper_service.py` passes.
+**Acceptance**: `pytest app/services/__tests__/test_sleeper_service.py` passes.
 
 - [ ] Create `backend/app/services/__init__.py`.
 - [ ] Create `backend/app/services/sleeper.py` with an `httpx.AsyncClient` (base URL `https://api.sleeper.app/v1`) and three async functions: `fetch_draft`, `fetch_picks`, `fetch_players`.
@@ -114,14 +114,15 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Test file collected; tests fail.
 
-- [ ] Create `backend/tests/test_availability.py` asserting:
+- [ ] Create `backend/app/services/__tests__/test_availability.py` asserting:
   - `get_available_players(session, session_id, position)` returns only players matching the position (or FLEX union) whose `sleeper_id` is not in `draft_picks_cache` for that session.
   - FLEX position correctly queries `position IN ("RB", "WR", "TE")`.
   - Results are sorted `last_name ASC, first_name ASC`.
+  - The query reads only from local tables and does not call Sleeper directly.
 
 ### C-4 — Implement `availability.py` (green) [US1, US2]
 
-**Acceptance**: `pytest tests/test_availability.py` passes.
+**Acceptance**: `pytest app/services/__tests__/test_availability.py` passes.
 
 - [ ] Create `backend/app/services/availability.py` implementing the SQL query from `data-model.md § Availability Query Logic`.
 - [ ] Define `FLEX_POSITIONS = ("RB", "WR", "TE")` and `VALID_POSITIONS` constants.
@@ -134,7 +135,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Test file collected; tests fail (route does not exist).
 
-- [ ] Create `backend/tests/test_sessions.py` with `httpx.AsyncClient(app=app)` tests for `POST /api/sessions`:
+- [ ] Create `backend/app/api/__tests__/test_sessions.py` with `httpx.AsyncClient(app=app)` tests for `POST /api/sessions`:
   - `201` with valid `sleeper_draft_id` — response body matches contract shape (session + roster_slots).
   - `400` when `sleeper_draft_id` is missing.
   - `404` when Sleeper returns 404 (mock the sleeper service).
@@ -145,7 +146,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### D-2 — Implement `POST /api/sessions` (green) [US4]
 
-**Acceptance**: `pytest tests/test_sessions.py::test_create_session*` passes.
+**Acceptance**: `pytest app/api/__tests__/test_sessions.py::test_create_session*` passes.
 
 - [ ] Create `backend/app/api/__init__.py`.
 - [ ] Create `backend/app/api/sessions.py` with the `POST /api/sessions` route implementing all five behavior steps from `contracts/api.md`.
@@ -153,7 +154,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### D-3 — Write failing tests for `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions` [US1, US3]
 
-- [ ] Add tests to `test_sessions.py`:
+- [ ] Add tests to `app/api/__tests__/test_sessions.py`:
   - `GET /api/sessions/1` → `200` with full session + roster_slots (mix of filled/unfilled).
   - `GET /api/sessions/999` → `404`.
   - `GET /api/sessions/1/positions` → `200` array of only open slots.
@@ -167,8 +168,8 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### D-5 — Write failing tests for `GET /api/sessions/{id}/players/{pos}` [US2]
 
-- [ ] Create `backend/tests/test_players.py` with tests for:
-  - `200` returns player list filtered by position and excluding draft picks.
+- [ ] Create `backend/app/api/__tests__/test_players.py` with tests for:
+  - `200` returns player list filtered by position and excluding locally cached draft picks.
   - FLEX returns union of RB, WR, TE.
   - `400` on unknown position.
   - `404` on unknown session.
@@ -176,13 +177,13 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### D-6 — Implement `GET /api/sessions/{id}/players/{pos}` (green) [US2]
 
-**Acceptance**: `pytest tests/test_players.py` passes.
+**Acceptance**: `pytest app/api/__tests__/test_players.py` passes.
 
 - [ ] Create `backend/app/api/players.py` and register under `/api`.
 
 ### D-7 — Write failing tests for `POST /api/sessions/{id}/position-pick` [US1]
 
-- [ ] Add tests to `test_sessions.py`:
+- [ ] Add tests to `app/api/__tests__/test_sessions.py`:
   - `200` returns `{run_id, position}` for a valid open slot.
   - `409` when slot is already filled.
   - `404` when slot ID does not belong to session.
@@ -212,6 +213,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Add tests:
   - `200` returns `{picks_synced, synced_at}`.
   - On Sleeper 502, returns `200` with cached count (non-fatal).
+  - A subsequent `GET /api/sessions/{id}/players/{pos}` reads from the refreshed cache without calling Sleeper again.
 
 ### D-12 — Implement `POST /api/sessions/{id}/sync` (green) [US2]
 
@@ -242,7 +244,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` collects tests; all fail (module not found).
 
-- [ ] Create `frontend/tests/services/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
+- [ ] Create `frontend/src/services/__tests__/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
   - `createSession(draft_id)` posts to `POST /api/sessions` and returns a `Session`.
   - `getSession(id)` fetches `GET /api/sessions/{id}` and returns a `Session`.
   - `getOpenPositions(id)` fetches `GET /api/sessions/{id}/positions` and returns `RosterSlot[]`.
@@ -267,7 +269,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/tests/entities/PlinkoBoard.test.ts` asserting:
+- [ ] Create `frontend/src/entities/__tests__/PlinkoBoard.test.ts` asserting:
   - `PlinkoBoard` constructor accepts a slot count and returns an object.
   - `getPegPositions()` returns `n` rows of staggered pegs within board bounds.
   - `getSlotBounds(index)` returns `{x, y, width}` for each bottom slot.
@@ -286,11 +288,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/tests/entities/PlinkoBall.test.ts` asserting:
+- [ ] Create `frontend/src/entities/__tests__/PlinkoBall.test.ts` asserting:
   - `PlinkoBall` accepts a seed and deterministically resolves to the same slot index on repeated runs with the same seed.
   - `drop(board)` returns a slot index within `[0, slotCount - 1]`.
-  - Fallback resolver fires if the ball has not exited within the physics timeout (≤ 16 ms simulation time).
-  - Simulation time for a single drop is recorded and is within budget.
+  - Fallback resolver fires if the ball has not exited before exceeding the per-frame physics/update budget (≤ 16 ms).
+  - Physics/update timing for the drop loop is recorded and stays within budget.
 
 ### G-4 — Implement `PlinkoBall` entity (green) [US1, US2]
 
@@ -298,7 +300,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 - [ ] Create `frontend/src/entities/PlinkoBall.ts`.
 - [ ] Use Phaser's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
-- [ ] Implement the fallback resolver: if no exit is detected within 16 ms of simulation time, resolve to `Math.floor(seededRandom() * slotCount)`.
+- [ ] Implement the fallback resolver: if no exit is detected before exceeding the 16 ms per-frame physics/update budget, resolve to `Math.floor(seededRandom() * slotCount)`.
 
 ---
 
@@ -338,7 +340,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 **Acceptance**: Player board renders with available players; ball drop shows `CongratsScene` with correct player name.
 
 - [ ] Create `frontend/src/scenes/PlayerBoardScene.ts`.
-- [ ] On `create`, call `api.syncPicks(session_id)` then `api.getPlayers(session_id, position)`.
+- [ ] On `create`, call `api.syncPicks(session_id)` as the explicit freshness step, then `api.getPlayers(session_id, position)`.
 - [ ] Construct `PlinkoBoard` with `slotCount = players.length` (cap display at a configurable max if many players).
 - [ ] Render player name labels on slots.
 - [ ] On ball exit, call `api.recordPlayerPick(session_id, roster_slot_id, players[slotIndex].id)`.
@@ -422,7 +424,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: CI fails on type errors or lint violations.
 
-- [ ] Backend: add `ruff check app/ tests/` and `pyright` (or `mypy`) steps.
+- [ ] Backend: add `ruff check app/` and `pyright` (or `mypy`) steps.
 - [ ] Frontend: `npm run typecheck` already included in J-2; add `eslint` if configured.
 
 ### J-4 — Add Docker build step to CI

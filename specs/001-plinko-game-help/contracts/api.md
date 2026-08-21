@@ -93,7 +93,7 @@ Returns `[]` when the draft is complete (triggers draft-complete state on the fr
 
 ### `GET /api/sessions/{session_id}/players/{position}`
 
-List all players available for drafting at a given position, cross-referenced against the Sleeper draft picks cache.
+List all players available for drafting at a given position, cross-referenced against the locally cached Sleeper draft picks.
 
 **Path parameters**:
 - `position` — one of `QB`, `RB`, `WR`, `TE`, `FLEX`, `K`, `DEF` (case-insensitive).
@@ -102,6 +102,7 @@ List all players available for drafting at a given position, cross-referenced ag
 - For `FLEX`, queries `position IN ("RB", "WR", "TE")`.
 - Subtracts all `sleeper_id` values present in `draft_picks_cache` for this session.
 - Returns players sorted by `last_name ASC, first_name ASC`.
+- Reads only from the local cache; callers should invoke `POST /api/sessions/{session_id}/sync` before rendering a player board when fresh Sleeper data is required.
 
 **Response `200 OK`**:
 ```json
@@ -190,7 +191,7 @@ Record the result of a player-board plinko drop (a specific player was selected)
 
 ### `POST /api/sessions/{session_id}/sync`
 
-Re-poll Sleeper for the latest draft picks and update `draft_picks_cache`. Call this before each player-board render to ensure the available player list reflects real-time league draft activity.
+Re-poll Sleeper for the latest draft picks and update `draft_picks_cache`. This endpoint is the explicit freshness boundary for player availability and should be called before each player-board render.
 
 **Request body**: empty (`{}` acceptable)
 
