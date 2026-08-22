@@ -41,10 +41,10 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `uvicorn app.main:app --port 8000` starts without errors and `GET /healthz` returns `200`.
 
-- [ ] Create `backend/app/__init__.py`.
-- [ ] Create `backend/app/main.py` with a bare `FastAPI()` instance and a `GET /healthz` route returning `{"status": "ok"}`.
-- [ ] Mount a placeholder `APIRouter` for `/api`.
-- [ ] Verify the server starts with `uv run uvicorn app.main:app --port 8000`.
+- [x] Create `backend/app/__init__.py`.
+- [x] Create `backend/app/main.py` with a bare `FastAPI()` instance and a `GET /healthz` route returning `{"status": "ok"}`.
+- [x] Mount a placeholder `APIRouter` for `/api`.
+- [x] Verify the server starts with `uv run uvicorn app.main:app --port 8000`.
 
 ---
 
