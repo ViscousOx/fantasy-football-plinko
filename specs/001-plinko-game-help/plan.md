@@ -6,14 +6,14 @@
 
 ## Summary
 
-Build a browser-based plinko game that helps a user navigate their fantasy football draft. A first plinko board determines which roster position to fill; a second board selects the specific player from the live pool of undrafted players in the user's Sleeper league draft. State is persisted in a SQLite database via a FastAPI backend, and available players are polled in real-time from the Sleeper REST API.
+Build a browser-based plinko game that helps a user navigate their fantasy football draft. A first plinko board determines which roster position to fill; a second board selects the specific player from the live pool of undrafted players in the user's Sleeper league draft. State is persisted in a SQLite database via a FastAPI backend, and available players are derived from a locally cached active-player dictionary plus live Sleeper draft-pick syncs.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x (frontend) | Python 3.12 (backend)
 
 **Primary Dependencies**:
-- Frontend: Phaser 4, Vite
+- Frontend: Phaser 3, Vite
 - Backend: FastAPI, SQLAlchemy (async), aiosqlite, httpx, uvicorn
 
 **Storage**: SQLite (single-file, volume-mounted in Docker)
@@ -35,7 +35,7 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 **Constraints**:
 - Single-user, single-container, no auth
 - Sleeper API is read-only (no token needed)
-- Sleeper player dictionary: ≤ 1 full sync per 24 hours
+- Sleeper active-player dictionary: ≤ 1 full sync per 24 hours
 - Docker image must build and run with `docker compose up`
 - Minimal dependencies (no extra frameworks, no message queues, no caches)
 
@@ -47,7 +47,7 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 |---|---|---|
 | I. Code Quality | PASS | Monorepo enforces single-responsibility; Phaser scenes map to discrete boards |
 | II. Test-First (NON-NEGOTIABLE) | PASS | All phases specify tests-first before implementation; E2E coverage in Phase K |
-| III. Coverage Gates | PASS | Vitest + pytest coverage enforced in CI; physics and pick-resolution paths at 100% via scoped `--cov-fail-under=100` step (J-1) and Vitest `coverageThreshold` (E-1) |
+| III. Coverage Gates | PASS | Vitest + pytest coverage enforced in CI; baseline coverage stays at constitution minimums, while 100% branch coverage is intentionally scoped only to plinko physics and pick-resolution paths because those flows directly determine draft outcomes and are the least tolerant of ambiguous behavior |
 | IV. Performance Budgets | PASS | Plinko physics/update step ≤ 16 ms per frame, TTI ≤ 3 s documented above; tracked in CI. IV.b Scoring Budget (≤ 50 ms) — N/A: no lineup scoring calculation in this feature. |
 | V. Observability | PASS | FastAPI structured JSON logging; no `console.log` in production builds |
 
@@ -125,12 +125,12 @@ fantasy-football-plinko/
 └── .gitignore
 ```
 
-**Structure Decision**: Option 2 (Web application). The frontend is a Phaser 4 SPA with no server-side rendering; the backend is a FastAPI service that serves the static bundle and owns all data persistence and Sleeper integration. The two sub-projects share no source code, communicating only via the HTTP contract in `contracts/api.md`.
+**Structure Decision**: Option 2 (Web application). The frontend is a Phaser 3 SPA with no server-side rendering; the backend is a FastAPI service that serves the static bundle and owns all data persistence and Sleeper integration. The two sub-projects share no source code, communicating only via the HTTP contract in `contracts/api.md`.
 
 ## Complexity Tracking
 
 No constitution violations. The two-project structure (frontend + backend) is the minimum necessary because:
-- The Sleeper player dictionary (5MB) must be cached server-side — downloading it in the browser on every session would violate the ≤ 3 s TTI budget and Sleeper's usage guidelines.
+- The Sleeper active-player dictionary must be cached server-side — downloading it in the browser on every session would violate the ≤ 3 s TTI budget and Sleeper's usage guidelines.
 - SQLite persistence is required for FR-009 (state across rounds) and FR-013 (refresh recovery), while `localStorage` stores only the reconnecting `session_id`.
 
 ---
@@ -144,7 +144,7 @@ Key findings:
 - The user enters a Sleeper `draft_id`; roster slot configuration is read directly from `draft.settings.slots_*`.
 - Available draftable players are active NFL players absent from the locally cached results of `GET /draft/{draft_id}/picks`, refreshed explicitly through `POST /api/sessions/{id}/sync`.
 - FLEX requires a union query over RB + WR + TE.
-- Phaser 4 Stability: **verify the latest stable release tag before implementation begins** (see research.md risk note).
+- Phaser 3 is the implementation target because it is stable and supports the required Matter.js plinko flow without introducing Phaser 4 release-risk.
 
 ---
 
@@ -157,7 +157,7 @@ See [data-model.md](./data-model.md).
 Six SQLite tables:
 | Table | Purpose |
 |---|---|
-| `players` | Sleeper player dictionary cache |
+| `players` | Sleeper active-player dictionary cache |
 | `player_cache_meta` | Last-sync timestamp for the daily refresh gate |
 | `plinko_sessions` | One row per draft session |
 | `roster_slots` | Per-session open/filled position requirements |

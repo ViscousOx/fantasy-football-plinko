@@ -99,7 +99,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Create `backend/app/services/__tests__/test_sleeper_service.py` with tests using `httpx` mock transport (or `respx`) to assert:
   - `fetch_draft(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}` and returns a parsed dict.
   - `fetch_picks(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and returns a list.
-  - `fetch_players()` calls `GET https://api.sleeper.app/v1/players/nfl` and returns a dict keyed by `player_id`.
+  - `fetch_players()` calls `GET https://api.sleeper.app/v1/players/nfl?active=true` and returns a dict keyed by `player_id`.
   - `fetch_draft` raises `httpx.HTTPStatusError` on 404; the caller receives a FastAPI `404` response.
   - `fetch_draft` raises a `502`-equivalent on connection error.
 
@@ -232,7 +232,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 - [ ] Create `frontend/` directory.
 - [ ] Run `npm create vite@latest frontend -- --template vanilla-ts` (or create `package.json` manually).
-- [ ] Add dependencies: `phaser` (verify latest stable 4.x tag per research.md risk note before pinning).
+- [ ] Add dependencies: `phaser` (pin latest stable 3.x release).
 - [ ] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
 - [ ] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
 - [ ] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000` and Vitest `coverage.thresholds` set to `{ "src/entities/**": { branches: 100, functions: 100 } }` (constitution §III).
@@ -300,7 +300,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 **Acceptance**: `npm test` — all PlinkoBall tests pass; simulation budget verified.
 
 - [ ] Create `frontend/src/entities/PlinkoBall.ts`.
-- [ ] Use Phaser's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
+- [ ] Use Phaser 3's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
 - [ ] Implement the fallback resolver: if no exit is detected before exceeding the 16 ms per-frame physics/update budget, resolve to `Math.floor(seededRandom() * slotCount)`.
 
 ---
@@ -413,15 +413,16 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### J-1 — Create backend CI job
 
-**Acceptance**: `.github/workflows/ci.yml` exists; `pytest` step runs and coverage gate ≥ 100% for physics and pick-resolution code paths.
+**Acceptance**: `.github/workflows/ci.yml` exists; `pytest` enforces `80%` baseline coverage for `app` overall and a separate `100%` branch-coverage gate explicitly scoped to pick-resolution code paths.
 
 - [ ] Create `.github/workflows/ci.yml` with a `backend` job:
   1. Checkout.
   2. Set up Python 3.12 + `uv`.
   3. `uv sync`.
   4. `uv run pytest --cov=app --cov-fail-under=80`
-  5. `uv run pytest app/api/ app/services/ --cov=app/api --cov=app/services --cov-branch --cov-fail-under=100` (constitution §III: 100% branch coverage on pick-resolution paths).
-  6. Upload coverage report as artifact.
+  5. `uv run pytest app/api/__tests__/test_sessions.py app/api/__tests__/test_players.py app/services/__tests__/test_availability.py --cov=app/api/sessions.py --cov=app/api/players.py --cov=app/services/availability.py --cov-branch --cov-fail-under=100`.
+  6. Add a workflow comment explaining that this stricter gate is intentional because position/player pick resolution directly determines draft outcomes and therefore cannot leave branches untested.
+  7. Upload coverage report as artifact.
 
 ### J-2 — Create frontend CI job
 
