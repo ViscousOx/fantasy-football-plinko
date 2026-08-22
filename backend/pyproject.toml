@@ -1,0 +1,25 @@
+[project]
+name = "fantasy-football-plinko-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Fantasy Football Plinko draft assistant"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlalchemy[asyncio]",
+    "aiosqlite",
+    "httpx",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+    "respx",
+    "coverage",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["app"]
