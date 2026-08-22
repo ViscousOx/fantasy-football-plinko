@@ -12,10 +12,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 |---|---|---|---|
 | A, B, E, F | Backend + frontend scaffold, ORM, DB init | Foundational — blocks all US | — |
 | C-1, C-2, D-1, D-2, H-2 | Sleeper client, session creation, SetupScene | **US4** — Configurable Roster | P2 |
-| D-3, D-4, D-7, D-8, G-1–G-4, H-3 | `/positions` + `/position-pick` + physics + PositionBoardScene | **US1** — Position Board Drop | P1 |
+| D-3, D-4, D-7, D-8, G-1–G-5, H-3 | `/positions` + `/position-pick` + physics + PositionBoardScene + SC-001 timing | **US1** — Position Board Drop | P1 |
 | D-5, D-6, D-9–D-12, H-4, H-5 | `/players/{pos}` + `/player-pick` + `/sync` + PlayerBoardScene + CongratsScene | **US2** — Player Selection | P1 |
 | B-3, B-4, D-3, D-4, H-1 | DB init, session-state endpoint, BootScene restore | **US3** — Persistent State | P2 |
 | I, J | Docker, CI | Infrastructure | — |
+| K | E2E tests | US1, US2, US3, FR-013 | P1/P2 |
 
 **MVP path (P1 stories only)**: A → B → C → D-1–D-12 → E → F → G → H-1–H-6.
 
@@ -234,7 +235,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Add dependencies: `phaser` (verify latest stable 4.x tag per research.md risk note before pinning).
 - [ ] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
 - [ ] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
-- [ ] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000`.
+- [ ] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000` and Vitest `coverage.thresholds` set to `{ "src/entities/**": { branches: 100, functions: 100 } }` (constitution §III).
 
 ---
 
@@ -301,6 +302,18 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Create `frontend/src/entities/PlinkoBall.ts`.
 - [ ] Use Phaser's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
 - [ ] Implement the fallback resolver: if no exit is detected before exceeding the 16 ms per-frame physics/update budget, resolve to `Math.floor(seededRandom() * slotCount)`.
+
+---
+
+### G-5 — Write performance tests for SC-001 API budget [SC-001]
+
+**Acceptance**: All new tests pass; combined mocked-API + physics path completes within 500 ms.
+
+- [ ] Add a test to `frontend/src/services/__tests__/api.test.ts` asserting:
+  - A full pick cycle (`recordPositionPick` mock → `recordPlayerPick` mock) measured with `performance.now()` completes within 500 ms.
+- [ ] Add a backend pytest test to `app/api/__tests__/test_sessions.py` asserting:
+  - `POST /api/sessions/{id}/position-pick` responds within 200 ms under in-process `AsyncClient` (in-memory SQLite, no Sleeper calls).
+  - `POST /api/sessions/{id}/player-pick` responds within 200 ms under the same conditions.
 
 ---
 
@@ -406,8 +419,9 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
   1. Checkout.
   2. Set up Python 3.12 + `uv`.
   3. `uv sync`.
-  4. `uv run pytest --cov=app --cov-fail-under=80` (adjust threshold per constitution §III; physics and pick paths at 100%).
-  5. Upload coverage report as artifact.
+  4. `uv run pytest --cov=app --cov-fail-under=80`
+  5. `uv run pytest app/api/ app/services/ --cov=app/api --cov=app/services --cov-branch --cov-fail-under=100` (constitution §III: 100% branch coverage on pick-resolution paths).
+  6. Upload coverage report as artifact.
 
 ### J-2 — Create frontend CI job
 
@@ -417,7 +431,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
   1. Set up Node 20.
   2. `npm ci`.
   3. `npm run typecheck` (`tsc --noEmit`).
-  4. `npm test -- --coverage --reporter=verbose`.
+  4. `npm test -- --coverage --reporter=verbose` (Vitest `coverageThreshold` for `src/entities/**` set to 100% branches — configured in E-1).
   5. Upload coverage report.
 
 ### J-3 — Add lint and type-check steps
@@ -434,6 +448,57 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Add `docker` job to CI depending on `backend` and `frontend` jobs:
   1. `docker compose build`.
   2. Run `smoke_test.sh`.
+
+---
+
+## Phase K — End-to-End Tests · US1, US2, US3, FR-013
+
+### K-1 — Set up Playwright
+
+**Acceptance**: `npm run e2e` runs against the Docker stack at `http://localhost:8000` and exits 0.
+
+- [ ] Add `@playwright/test` as a dev dependency in `frontend/package.json`.
+- [ ] Create `e2e/playwright.config.ts` with `baseURL: "http://localhost:8000"` and a `webServer` block that starts `docker compose up`.
+- [ ] Add `"e2e": "playwright test"` to `frontend/package.json` scripts.
+
+### K-2 — E2E: Happy path — position pick + player pick [US1, US2]
+
+**Acceptance**: Test navigates the app end-to-end; CongratsScene displays a player name without error.
+
+- [ ] Create `e2e/happy-path.spec.ts`:
+  - Given: backend running with a seeded test session (fixture `draft_id` backed by a stubbed Sleeper response or pre-seeded in-memory SQLite).
+  - Navigate to app; enter `draft_id`; submit SetupScene form.
+  - Click drop on position board; assert transition to player board.
+  - Click drop on player board; assert CongratsScene contains "Draft " text.
+
+### K-3 — E2E: Multi-round state persistence [US3]
+
+**Acceptance**: After two rounds, the position used in round 1 is absent from the position board in round 2.
+
+- [ ] Create `e2e/multi-round.spec.ts`:
+  - Complete one full pick cycle (position + player).
+  - On the next position board render, assert the previously filled position slot is absent or visually closed.
+  - Complete a second full pick cycle for a different position.
+  - Assert two positions are filled and two players are absent from future boards.
+
+### K-4 — E2E: Page-refresh session recovery [FR-013]
+
+**Acceptance**: After a hard page refresh mid-draft, the app resumes from the same draft state without data loss.
+
+- [ ] Create `e2e/refresh-recovery.spec.ts`:
+  - Complete one full pick cycle.
+  - Call `page.reload()`.
+  - Assert the app reconnects (SetupScene is not shown) and the previously filled position remains absent from the board.
+
+### K-5 — Add E2E job to CI
+
+**Acceptance**: The `e2e` CI job runs after the `docker` job and fails the pipeline on any E2E test failure.
+
+- [ ] Add `e2e` job to `.github/workflows/ci.yml` with `needs: [docker]`:
+  1. `docker compose up -d`.
+  2. Poll `GET /healthz` until 200 (reuse `smoke_test.sh` logic or inline).
+  3. `npm run e2e`.
+  4. `docker compose down`.
 
 ---
 

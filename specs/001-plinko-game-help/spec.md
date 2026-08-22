@@ -60,17 +60,17 @@ The user runs multiple drop cycles — one per draft pick — and the app tracks
 
 ### User Story 4 - Configurable Roster Positions and Player Pool (Priority: P2)
 
-Before the draft begins the user can specify which roster positions need to be filled (e.g., 1 QB, 2 RB, 2 WR, 1 TE, 1 FLEX, 1 K, 1 DEF) and supply the pool of available players per position. The plinko boards reflect this configuration exactly.
+Before the draft begins the user enters a Sleeper `draft_id`. The app automatically reads the roster slot composition (position names and counts) from that draft's settings and builds the plinko boards to match exactly. The user does not manually enter positions or player pools.
 
-**Why this priority**: Without configuration the app only works for one fixed roster format. Configurability makes it useful for any league format and for entering real pre-draft player availability.
+**Why this priority**: Without Sleeper integration the app only works for a single hardcoded roster format. Reading the draft settings from Sleeper makes the app usable for any league format automatically, and the live picks feed provides real player availability without manual entry.
 
 **Independent Test**: Can be fully tested by configuring a custom roster (e.g., 2 RB slots) and verifying that the position board shows RB twice (or with a count indicator) and that the position is only fully removed after both RB slots are filled.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user configures 2 RB slots, **When** the position board renders, **Then** RB is available for selection twice; after the first RB is drafted the slot count decreases to 1 and RB remains on the board.
-2. **Given** the user provides a player list for WR containing 10 players, **When** the WR player board renders, **Then** all 10 players appear as openings (up to the board's display capacity).
-3. **Given** the configuration is saved, **When** a new draft session starts with the same config, **Then** all positions and player pools are restored to their initial state.
+1. **Given** the Sleeper draft has `slots_rb: 2` in its settings, **When** the session is created and the position board renders, **Then** RB is available for selection twice; after the first RB is drafted the slot count decreases to 1 and RB remains on the board.
+2. **Given** there are 10 undrafted WR players in the Sleeper draft's available pool, **When** the WR player board renders, **Then** all 10 players appear as openings (up to the board's display capacity).
+3. **Given** a `draft_id` was previously used to create a session, **When** the user enters the same `draft_id` again, **Then** the system creates a fresh session with the Sleeper-derived roster config (not resuming the old session — see FR-013 for mid-draft refresh recovery).
 
 ---
 
@@ -95,7 +95,7 @@ Before the draft begins the user can specify which roster positions need to be f
 - **FR-007**: System MUST remove a position from the position board once it has been fully filled (all slots for that position consumed).
 - **FR-008**: System MUST remove a player from all future player boards once that player has been selected.
 - **FR-009**: System MUST persist draft state (filled positions, drafted players) across multiple drop cycles within the same session.
-- **FR-010**: System MUST allow the user to configure the roster slot composition (position name + count) before starting the draft.
+- **FR-010**: System MUST derive roster slot composition (position name + count) from the Sleeper `draft.settings.slots_*` fields when a `draft_id` is provided, requiring no manual position entry from the user.
 - **FR-011**: System MUST allow the user to enter an active Sleeper `draft_id` before starting the draft so the system can derive roster slots and available players per position.
 - **FR-012**: System MUST indicate when the draft is complete (all roster slots filled) and prevent additional drops.
 - **FR-013**: System MUST recover draft state after a page refresh by reconnecting to the persisted session using a locally stored `session_id`.
@@ -113,7 +113,7 @@ Before the draft begins the user can specify which roster positions need to be f
 
 ### Measurable Outcomes
 
-- **SC-001**: A user can complete a full draft pick (position selection + player selection) in under 30 seconds from initiating the first drop to dismissing the congratulatory message.
+- **SC-001**: A user can complete a full draft pick (position selection + player selection) in under 30 seconds from initiating the first drop to dismissing the congratulatory message. Budget decomposition: ≤16 ms physics resolution (SC-002, automated), ≤500 ms combined API round-trips (automated, see task G-5), remaining budget allocated to scene transition animations and user reading/dismissing CongratsScene (manual UX review).
 - **SC-002**: Each plinko physics/update step stays within the ≤ 16 ms frame budget (60 fps target), and any unresolved drop is forced to a valid outcome by the fallback path without stalling the UI.
 - **SC-003**: After N rounds, exactly N positions are marked filled and exactly N players are absent from future boards, with zero duplicates or omissions.
 - **SC-004**: 100% of player board openings correspond to valid, undrafted players for the resolved position — no stale or duplicate entries appear.

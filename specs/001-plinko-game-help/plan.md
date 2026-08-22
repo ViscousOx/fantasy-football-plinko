@@ -30,6 +30,7 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 - Plinko physics/update step: ≤ 16 ms per frame (constitution IV)
 - Time-to-Interactive: ≤ 3 s on median mobile (constitution IV)
 - Sleeper pick sync: ≤ 30-second TTL
+- API pick endpoints: ≤ 200 ms each under in-process load (SC-001 decomposition; see task G-5)
 
 **Constraints**:
 - Single-user, single-container, no auth
@@ -45,9 +46,9 @@ Build a browser-based plinko game that helps a user navigate their fantasy footb
 | Principle | Status | Notes |
 |---|---|---|
 | I. Code Quality | PASS | Monorepo enforces single-responsibility; Phaser scenes map to discrete boards |
-| II. Test-First (NON-NEGOTIABLE) | PASS | All phases below specify tests-first before implementation |
-| III. Coverage Gates | PASS | Vitest + pytest coverage enforced in CI; physics and pick-resolution paths at 100% |
-| IV. Performance Budgets | PASS | Plinko physics/update step ≤ 16 ms per frame, TTI ≤ 3 s documented above; tracked in CI |
+| II. Test-First (NON-NEGOTIABLE) | PASS | All phases specify tests-first before implementation; E2E coverage in Phase K |
+| III. Coverage Gates | PASS | Vitest + pytest coverage enforced in CI; physics and pick-resolution paths at 100% via scoped `--cov-fail-under=100` step (J-1) and Vitest `coverageThreshold` (E-1) |
+| IV. Performance Budgets | PASS | Plinko physics/update step ≤ 16 ms per frame, TTI ≤ 3 s documented above; tracked in CI. IV.b Scoring Budget (≤ 50 ms) — N/A: no lineup scoring calculation in this feature. |
 | V. Observability | PASS | FastAPI structured JSON logging; no `console.log` in production builds |
 
 ## Project Structure
