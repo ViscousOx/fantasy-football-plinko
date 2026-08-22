@@ -196,7 +196,10 @@ Re-poll Sleeper for the latest draft picks and update `draft_picks_cache`. This 
 **Request body**: empty (`{}` acceptable)
 
 **Behavior**:
-- `502` — Sleeper API unreachable; returns last-known cached data (client continues normally).
+- Re-polls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and upserts rows in `draft_picks_cache`.
+- Updates `picks_last_synced_at` on the session.
+- If Sleeper is unreachable, responds **HTTP 200** with the last-known cached pick count (`picks_synced` = cached count, `synced_at` = last successful sync timestamp). This is a **non-fatal degraded path** — the client continues normally.
+- Note: the `502` in `POST /api/sessions` and other GET routes refers to an actual HTTP 502 propagated to the caller; this endpoint deliberately absorbs the Sleeper error to preserve draft continuity.
 
 **Response `200 OK`**:
 ```json

@@ -15,10 +15,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 | D-3, D-4, D-7, D-8, G-1–G-5, H-3 | `/positions` + `/position-pick` + physics + PositionBoardScene + SC-001 timing | **US1** — Position Board Drop | P1 |
 | D-5, D-6, D-9–D-12, H-4, H-5 | `/players/{pos}` + `/player-pick` + `/sync` + PlayerBoardScene + CongratsScene | **US2** — Player Selection | P1 |
 | B-3, B-4, D-3, D-4, H-1 | DB init, session-state endpoint, BootScene restore | **US3** — Persistent State | P2 |
+| H-0-a–H-0-c | Scene unit tests (write-failing, TDD gate) | US1, US2, FR-012 | P1 |
 | I, J | Docker, CI | Infrastructure | — |
 | K | E2E tests | US1, US2, US3, FR-013 | P1/P2 |
 
-**MVP path (P1 stories only)**: A → B → C → D-1–D-12 → E → F → G → H-1–H-6.
+**MVP path (P1 stories only)**: A → B → C → D-1–D-12 → E → F → G → H-0-a–H-0-c → H-1–H-6.
 
 ---
 
@@ -87,6 +88,16 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
   - `init_db()` async function calling `metadata.create_all`.
   - `get_session()` async generator for use as a FastAPI dependency.
 - [ ] Wire `init_db()` call into `app.main` lifespan handler.
+
+### B-5 — Configure structured JSON logging (constitution §V)
+
+**Acceptance**: Every request to the backend emits a JSON log line to stdout; `uvicorn` access logs are suppressed in favour of the app-level logger; no `print()` statements exist in `app/`; `pytest` `caplog` test passes.
+
+- [ ] Add `python-json-logger` in `backend/pyproject.toml`.
+- [ ] Create `backend/app/logging_config.py` with a `configure_logging()` function that installs the JSON formatter on the root logger at startup.
+- [ ] Call `configure_logging()` in `app/main.py` lifespan handler before `init_db()`.
+- [ ] Emit a structured `INFO` event from `POST /api/sessions/{id}/position-pick` and `POST /api/sessions/{id}/player-pick` including `session_id`, `duration_ms`, and `outcome`.
+- [ ] Add a `pytest` test asserting that a pick request produces a log record with `duration_ms` and `session_id` keys (capture with `caplog`).
 
 ---
 
@@ -302,6 +313,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Create `frontend/src/entities/PlinkoBall.ts`.
 - [ ] Use Phaser 3's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
 - [ ] Implement the fallback resolver: if no exit is detected before exceeding the 16 ms per-frame physics/update budget, resolve to `Math.floor(seededRandom() * slotCount)`.
+- [ ] Emit a structured log event after each `drop()` call recording `seed`, `slotCount`, `resolvedSlot`, and `durationMs` via a `logger` shim that is stripped in production builds. Confirm `durationMs ≤ 16` in the existing budget test.
 
 ---
 
@@ -314,6 +326,40 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 - [ ] Add a backend pytest test to `app/api/__tests__/test_sessions.py` asserting:
   - `POST /api/sessions/{id}/position-pick` responds within 200 ms under in-process `AsyncClient` (in-memory SQLite, no Sleeper calls).
   - `POST /api/sessions/{id}/player-pick` responds within 200 ms under the same conditions.
+
+---
+
+---
+
+## Phase H-0 — Frontend: Scene Unit Tests (write-failing tests first · constitution §II)
+
+These tests are written **before** the corresponding H-1–H-6 implementation tasks. They must fail at collection time (module not found) before any scene file is created.
+
+### H-0-a — Write failing tests for `PositionBoardScene` branch logic [US1, FR-012]
+
+**Acceptance**: Tests collected; all fail with `Cannot find module`.
+
+- [ ] Create `frontend/src/scenes/__tests__/PositionBoardScene.test.ts` using Vitest with mocked `api.*` calls (`vi.mock('../services/api')`):
+  - **Draft-complete guard**: `getOpenPositions` returns `[]` → scene calls no `PlinkoBoard` constructor and renders draft-complete state.
+  - **Normal load**: `getOpenPositions` returns N slots → `PlinkoBoard` constructed with `slotCount = N`; slot labels match position names.
+  - **Post-drop API call**: after ball exits slot index `i`, `recordPositionPick` is called with `openSlots[i].id`; scene transitions to `PlayerBoardScene` with correct `position`.
+
+### H-0-b — Write failing tests for `PlayerBoardScene` branch logic [US2, edge case]
+
+**Acceptance**: Tests collected; all fail.
+
+- [ ] Create `frontend/src/scenes/__tests__/PlayerBoardScene.test.ts`:
+  - **Empty-player guard**: `getPlayers` returns `[]` → scene shows error state and does not construct a `PlinkoBoard`; scene transitions back to `PositionBoardScene`.
+  - **Normal load**: `getPlayers` returns M players → `PlinkoBoard` constructed with `slotCount = M`; player labels rendered.
+  - **Post-drop API call**: `recordPlayerPick` called with correct `roster_slot_id` and `players[slotIndex].id`; transitions to `CongratsScene`.
+
+### H-0-c — Write failing tests for `CongratsScene` branch logic [US2, FR-012]
+
+**Acceptance**: Tests collected; all fail.
+
+- [ ] Create `frontend/src/scenes/__tests__/CongratsScene.test.ts`:
+  - **Normal variant**: scene receives `{ player, session_complete: false }` → displays `"Draft [First Last]!"` text; dismiss button starts `PositionBoardScene`.
+  - **Complete variant**: `session_complete: true` → displays `"Draft Complete!"` text; dismiss button does **not** start `PositionBoardScene`.
 
 ---
 
@@ -338,7 +384,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### H-3 — `PositionBoardScene` — first plinko board [US1]
 
-**Acceptance**: Position board renders with correct number of slots matching open roster positions; ball drop resolves and transitions to player board.
+**Acceptance**: `npm test` — all `PositionBoardScene.test.ts` tests pass; manual smoke test confirms board renders in browser with correct number of slots matching open roster positions and ball drop resolves and transitions to player board.
 
 - [ ] Create `frontend/src/scenes/PositionBoardScene.ts`.
 - [ ] On `create`, call `api.getOpenPositions(session_id)` and construct a `PlinkoBoard` with `slotCount = openSlots.length`.
@@ -350,7 +396,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### H-4 — `PlayerBoardScene` — second plinko board [US2]
 
-**Acceptance**: Player board renders with available players; ball drop shows `CongratsScene` with correct player name.
+**Acceptance**: `npm test` — all `PlayerBoardScene.test.ts` tests pass; manual smoke test confirms player board renders with available players and ball drop shows `CongratsScene` with correct player name.
 
 - [ ] Create `frontend/src/scenes/PlayerBoardScene.ts`.
 - [ ] On `create`, call `api.syncPicks(session_id)` as the explicit freshness step, then `api.getPlayers(session_id, position)`.
@@ -362,7 +408,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 ### H-5 — `CongratsScene` — draft confirmation overlay [US2]
 
-**Acceptance**: Player name is displayed; dismissing returns to `PositionBoardScene` or shows draft-complete message.
+**Acceptance**: `npm test` — all `CongratsScene.test.ts` tests pass; manual smoke test confirms player name is displayed and dismissing returns to `PositionBoardScene` or shows draft-complete message.
 
 - [ ] Create `frontend/src/scenes/CongratsScene.ts`.
 - [ ] Display "Draft [First Last]!" text prominently.
