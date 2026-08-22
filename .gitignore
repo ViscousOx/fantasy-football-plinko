@@ -4,6 +4,10 @@ frontend/dist/
 backend/.venv
 *.db
 __pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+venv/
 .pytest_cache/
 coverage/
 *.log

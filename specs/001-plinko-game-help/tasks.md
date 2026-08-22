@@ -29,11 +29,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `backend/pyproject.toml` exists, `uv sync` succeeds, `uv run python -c "import fastapi"` exits 0.
 
-- [ ] Create `backend/` directory.
-- [ ] Create `backend/pyproject.toml` declaring `[project]` metadata and dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `aiosqlite`, `httpx`.
-- [ ] Add dev dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `respx`, `coverage`.
-- [ ] Configure `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` and `testpaths = ["app"]` so co-located `__tests__/` directories are collected.
-- [ ] Run `uv sync` and confirm lock file is generated.
+- [x] Create `backend/` directory.
+- [x] Create `backend/pyproject.toml` declaring `[project]` metadata and dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `aiosqlite`, `httpx`.
+- [x] Add dev dependencies: `pytest`, `pytest-asyncio`, `httpx` (for `AsyncClient`), `respx`, `coverage`.
+- [x] Configure `[tool.pytest.ini_options]` with `asyncio_mode = "auto"` and `testpaths = ["app"]` so co-located `__tests__/` directories are collected.
+- [x] Run `uv sync` and confirm lock file is generated.
 
 ---
 
@@ -41,10 +41,10 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `uvicorn app.main:app --port 8000` starts without errors and `GET /healthz` returns `200`.
 
-- [ ] Create `backend/app/__init__.py`.
-- [ ] Create `backend/app/main.py` with a bare `FastAPI()` instance and a `GET /healthz` route returning `{"status": "ok"}`.
-- [ ] Mount a placeholder `APIRouter` for `/api`.
-- [ ] Verify the server starts with `uv run uvicorn app.main:app --port 8000`.
+- [x] Create `backend/app/__init__.py`.
+- [x] Create `backend/app/main.py` with a bare `FastAPI()` instance and a `GET /healthz` route returning `{"status": "ok"}`.
+- [x] Mount a placeholder `APIRouter` for `/api`.
+- [x] Verify the server starts with `uv run uvicorn app.main:app --port 8000`.
 
 ---
 
