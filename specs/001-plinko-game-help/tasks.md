@@ -54,8 +54,8 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/models/__tests__/test_orm.py` collects tests and all fail with `ImportError` or `ModuleNotFoundError`.
 
-- [ ] Create `backend/app/models/__tests__/__init__.py`.
-- [ ] Create `backend/app/models/__tests__/test_orm.py` with tests asserting:
+- [x] Create `backend/app/models/__tests__/__init__.py`.
+- [x] Create `backend/app/models/__tests__/test_orm.py` with tests asserting:
   - Each model (`Player`, `PlayerCacheMeta`, `PlinkoSession`, `RosterSlot`, `DraftPicksCache`, `PlinkoRun`) is importable from `app.models.orm`.
   - `Player` has columns: `id`, `sleeper_id`, `first_name`, `last_name`, `position`, `team`, `active`, `synced_at`.
   - `RosterSlot` has a composite unique constraint on `(session_id, slot_order)`.
@@ -65,16 +65,16 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/models/__tests__/test_orm.py` passes; `uv run python -c "from app.models.orm import Player"` exits 0.
 
-- [ ] Create `backend/app/models/__init__.py`.
-- [ ] Create `backend/app/models/orm.py` with `DeclarativeBase` and all six SQLAlchemy models matching the data model in `data-model.md`.
-- [ ] Add `(position, active)` index on `Player`.
-- [ ] Add `(session_id, filled_at)` index on `RosterSlot`.
+- [x] Create `backend/app/models/__init__.py`.
+- [x] Create `backend/app/models/orm.py` with `DeclarativeBase` and all six SQLAlchemy models matching the data model in `data-model.md`.
+- [x] Add `(position, active)` index on `Player`.
+- [x] Add `(session_id, filled_at)` index on `RosterSlot`.
 
 ### B-3 — Write failing tests for `db.py` (DB init)
 
 **Acceptance**: Test file collected, tests fail.
 
-- [ ] Create `backend/app/__tests__/test_db.py` asserting:
+- [x] Create `backend/app/__tests__/test_db.py` asserting:
   - `init_db()` is callable and creates all tables in a fresh in-memory SQLite database.
   - `get_session()` is an async context manager that yields a live `AsyncSession`.
 
@@ -82,22 +82,22 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/__tests__/test_db.py` passes.
 
-- [ ] Create `backend/app/db.py` with:
+- [x] Create `backend/app/db.py` with:
   - Async engine configured from `DATABASE_URL` env var (default `sqlite+aiosqlite:///./data/plinko.db`).
   - `PRAGMA foreign_keys = ON` on every connection via an `@event.listens_for(engine.sync_engine, "connect")` hook.
   - `init_db()` async function calling `metadata.create_all`.
   - `get_session()` async generator for use as a FastAPI dependency.
-- [ ] Wire `init_db()` call into `app.main` lifespan handler.
+- [x] Wire `init_db()` call into `app.main` lifespan handler.
 
 ### B-5 — Configure structured JSON logging (constitution §V)
 
 **Acceptance**: Every request to the backend emits a JSON log line to stdout; `uvicorn` access logs are suppressed in favour of the app-level logger; no `print()` statements exist in `app/`; `pytest` `caplog` test passes.
 
-- [ ] Add `python-json-logger` in `backend/pyproject.toml`.
-- [ ] Create `backend/app/logging_config.py` with a `configure_logging()` function that installs the JSON formatter on the root logger at startup.
-- [ ] Call `configure_logging()` in `app/main.py` lifespan handler before `init_db()`.
-- [ ] Emit a structured `INFO` event from `POST /api/sessions/{id}/position-pick` and `POST /api/sessions/{id}/player-pick` including `session_id`, `duration_ms`, and `outcome`.
-- [ ] Add a `pytest` test asserting that a pick request produces a log record with `duration_ms` and `session_id` keys (capture with `caplog`).
+- [x] Add `python-json-logger` in `backend/pyproject.toml`.
+- [x] Create `backend/app/logging_config.py` with a `configure_logging()` function that installs the JSON formatter on the root logger at startup.
+- [x] Call `configure_logging()` in `app/main.py` lifespan handler before `init_db()`.
+- [x] Emit a structured `INFO` event from `POST /api/sessions/{id}/position-pick` and `POST /api/sessions/{id}/player-pick` including `session_id`, `duration_ms`, and `outcome`.
+- [x] Add a `pytest` test asserting that a pick request produces a log record with `duration_ms` and `session_id` keys (capture with `caplog`).
 
 ---
 
