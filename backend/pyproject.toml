@@ -9,6 +9,7 @@ dependencies = [
     "sqlalchemy[asyncio]",
     "aiosqlite",
     "httpx",
+    "python-json-logger",
 ]
 
 [dependency-groups]
