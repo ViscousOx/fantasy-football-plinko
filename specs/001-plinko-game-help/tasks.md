@@ -107,7 +107,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Test file collected; all tests fail.
 
-- [ ] Create `backend/app/services/__tests__/test_sleeper_service.py` with tests using `httpx` mock transport (or `respx`) to assert:
+- [x] Create `backend/app/services/__tests__/test_sleeper_service.py` with tests using `httpx` mock transport (or `respx`) to assert:
   - `fetch_draft(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}` and returns a parsed dict.
   - `fetch_picks(draft_id)` calls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and returns a list.
   - `fetch_players()` calls `GET https://api.sleeper.app/v1/players/nfl?active=true` and returns a dict keyed by `player_id`.
@@ -118,15 +118,15 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/services/__tests__/test_sleeper_service.py` passes.
 
-- [ ] Create `backend/app/services/__init__.py`.
-- [ ] Create `backend/app/services/sleeper.py` with an `httpx.AsyncClient` (base URL `https://api.sleeper.app/v1`) and three async functions: `fetch_draft`, `fetch_picks`, `fetch_players`.
-- [ ] Map HTTP 404 → FastAPI `HTTPException(404)` and connection errors → `HTTPException(502)`.
+- [x] Create `backend/app/services/__init__.py`.
+- [x] Create `backend/app/services/sleeper.py` with an `httpx.AsyncClient` (base URL `https://api.sleeper.app/v1`) and three async functions: `fetch_draft`, `fetch_picks`, `fetch_players`.
+- [x] Map HTTP 404 → FastAPI `HTTPException(404)` and connection errors → `HTTPException(502)`.
 
 ### C-3 — Write failing tests for `availability.py` [US1, US2]
 
 **Acceptance**: Test file collected; tests fail.
 
-- [ ] Create `backend/app/services/__tests__/test_availability.py` asserting:
+- [x] Create `backend/app/services/__tests__/test_availability.py` asserting:
   - `get_available_players(session, session_id, position)` returns only players matching the position (or FLEX union) whose `sleeper_id` is not in `draft_picks_cache` for that session.
   - FLEX position correctly queries `position IN ("RB", "WR", "TE")`.
   - Results are sorted `last_name ASC, first_name ASC`.
@@ -136,8 +136,8 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/services/__tests__/test_availability.py` passes.
 
-- [ ] Create `backend/app/services/availability.py` implementing the SQL query from `data-model.md § Availability Query Logic`.
-- [ ] Define `FLEX_POSITIONS = ("RB", "WR", "TE")` and `VALID_POSITIONS` constants.
+- [x] Create `backend/app/services/availability.py` implementing the SQL query from `data-model.md § Availability Query Logic`.
+- [x] Define `FLEX_POSITIONS = ("RB", "WR", "TE")` and `VALID_POSITIONS` constants.
 
 ---
 
