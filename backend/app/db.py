@@ -8,6 +8,10 @@ from app.models.orm import Base
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/plinko.db")
 
+_db_path = DATABASE_URL.replace("sqlite+aiosqlite:///", "")
+if _db_path != ":memory:":
+    os.makedirs(os.path.dirname(_db_path), exist_ok=True)
+
 engine = create_async_engine(DATABASE_URL, echo=False)
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
