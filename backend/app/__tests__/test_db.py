@@ -2,13 +2,12 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
-from app.db import engine, get_session, init_db  # noqa: E402
+from app.db import engine, get_session, init_db
 
 
 async def test_init_db_creates_all_tables() -> None:

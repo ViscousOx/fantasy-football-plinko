@@ -6,9 +6,9 @@ import respx
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
-from app.db import async_session_factory, engine  # noqa: E402
-from app.models.orm import Base, DraftPicksCache, PlinkoSession, Player  # noqa: E402
-from app.services.availability import (  # noqa: E402
+from app.db import async_session_factory, engine
+from app.models.orm import Base, DraftPicksCache, Player, PlinkoSession
+from app.services.availability import (
     FLEX_POSITIONS,
     VALID_POSITIONS,
     get_available_players,

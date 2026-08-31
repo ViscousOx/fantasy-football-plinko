@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
-from app.db import async_session_factory, init_db  # noqa: E402
-from app.main import app  # noqa: E402
-from app.models.orm import PlinkoSession, Player, RosterSlot  # noqa: E402
+from app.db import async_session_factory, init_db
+from app.main import app
+from app.models.orm import Player, PlinkoSession, RosterSlot
 
 
 async def _seed_session(db: AsyncSession) -> tuple[int, int, int]:
