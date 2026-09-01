@@ -1,0 +1,187 @@
+{
+	"info": {
+		"_postman_id": "27ca48eb-a482-45ed-89b3-f98b83ff426d",
+		"name": "plinko backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "health",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{url}}/healthz",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"healthz"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "session",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"sleeper_draft_id\": \"{{draftId}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{url}}/api/sessions",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"api",
+						"sessions"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "session by id",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{url}}/api/sessions/{{sessionId}}",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"api",
+						"sessions",
+						"{{sessionId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "available positions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{url}}/api/sessions/{{sessionId}}/positions",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"api",
+						"sessions",
+						"{{sessionId}}",
+						"positions"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "available players by position",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{url}}/sessions/{{sessionId}}/players/{{position}}",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"sessions",
+						"{{sessionId}}",
+						"players",
+						"{{position}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "session sync",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{url}}/sessions/{{sessionId}}/sync",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"sessions",
+						"{{sessionId}}",
+						"sync"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "position pick",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"roster_slot_id\": 1\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{url}}/sessions/{{sessionId}}/position-pick",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"sessions",
+						"{{sessionId}}",
+						"position-pick"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "player pick",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"roster_slot_id\": 1,\r\n  \"player_id\": 10\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{url}}/sessions/{{sessionId}}/player-pick",
+					"host": [
+						"{{url}}"
+					],
+					"path": [
+						"sessions",
+						"{{sessionId}}",
+						"player-pick"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
