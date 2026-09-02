@@ -21,6 +21,7 @@ Populated once per day from `GET /v1/players/nfl?active=true`. Never modified by
 | `position` | TEXT | Primary position (`QB`, `RB`, `WR`, `TE`, `K`, `DEF`) |
 | `team` | TEXT NULLABLE | NFL team abbreviation |
 | `active` | BOOLEAN | `true` = Sleeper `status == "Active"` |
+| `search_rank` | INTEGER NULLABLE | Sleeper's `search_rank` field — overall draft desirability rank across all players (lower = more draftable). `NULL` when Sleeper omits it (e.g. unranked/rookie-not-yet-ranked players). |
 | `synced_at` | DATETIME | Timestamp of last Sleeper sync |
 
 **Index**: `(position, active)` — used on every player-board query.
@@ -147,6 +148,7 @@ interface Player {
   last_name: string;
   position: Position;
   team: string | null;
+  search_rank: number | null;
 }
 
 // Position enum — must match backend values exactly
@@ -179,7 +181,9 @@ WHERE p.position IN :positions          -- ["RB"] or ["RB","WR","TE"] for FLEX
       FROM draft_picks_cache dpc
       WHERE dpc.session_id = :session_id
   )
-ORDER BY p.last_name, p.first_name;
+ORDER BY p.search_rank IS NULL, p.search_rank ASC, p.last_name, p.first_name;
 ```
 
 `positions` is a list to support FLEX expansion. All other position queries pass a single-element list.
+
+Players are ordered by Sleeper's `search_rank` ascending (lower = higher overall draft rank), with `NULL` ranks sorted last (e.g. `NULLS LAST` in Postgres/SQLite dialects that support it). `last_name, first_name` remains the tiebreaker for players sharing a rank or both having `NULL`.
