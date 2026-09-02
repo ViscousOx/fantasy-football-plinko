@@ -21,6 +21,7 @@ Populated once per day from `GET /v1/players/nfl?active=true`. Never modified by
 | `position` | TEXT | Primary position (`QB`, `RB`, `WR`, `TE`, `K`, `DEF`) |
 | `team` | TEXT NULLABLE | NFL team abbreviation |
 | `active` | BOOLEAN | `true` = Sleeper `status == "Active"` |
+| `search_rank` | INTEGER NULLABLE | Sleeper's `search_rank` field — overall draft desirability rank across all players (lower = more draftable). `NULL` when Sleeper omits it (e.g. unranked/rookie-not-yet-ranked players). |
 | `synced_at` | DATETIME | Timestamp of last Sleeper sync |
 
 **Index**: `(position, active)` — used on every player-board query.
@@ -60,7 +61,7 @@ Seeded from `draft.settings` (e.g. `slots_rb: 2` → two rows with `position = "
 |---|---|---|
 | `id` | INTEGER PK | Auto-increment |
 | `session_id` | INTEGER FK → `plinko_sessions.id` | |
-| `position` | TEXT NOT NULL | `QB`, `RB`, `WR`, `TE`, `FLEX`, `K`, `DEF` |
+| `position` | TEXT NOT NULL | `QB`, `RB`, `WR`, `TE`, `FLEX`, `BN`, `K`, `DEF` |
 | `slot_order` | INTEGER | Display order on the position board (1-indexed) |
 | `filled_at` | DATETIME NULLABLE | NULL = still open |
 | `player_id` | INTEGER FK → `players.id` NULLABLE | Set when the slot is filled |
@@ -69,7 +70,7 @@ Seeded from `draft.settings` (e.g. `slots_rb: 2` → two rows with `position = "
 
 **Constraint**: `(session_id, slot_order)` UNIQUE — prevents duplicate slot assignments.
 
-> **Bench seats** (`slots_bn`) are excluded — bench positions do not appear on the plinko boards per the spec.
+> **Bench seats** (`slots_bn`) are included as `BN` roster slots and appear on the plinko boards. Like `FLEX`, a `BN` slot is not locked to a single position — its available-player pool is the union of all startable positions (`QB`, `RB`, `WR`, `TE`, `K`, `DEF`), since a bench spot can hold any drafted player.
 
 ---
 
@@ -147,10 +148,11 @@ interface Player {
   last_name: string;
   position: Position;
   team: string | null;
+  search_rank: number | null;
 }
 
 // Position enum — must match backend values exactly
-type Position = "QB" | "RB" | "WR" | "TE" | "FLEX" | "K" | "DEF";
+type Position = "QB" | "RB" | "WR" | "TE" | "FLEX" | "BN" | "K" | "DEF";
 
 // Plinko run payload sent by the frontend
 interface PositionPickPayload {
@@ -179,7 +181,9 @@ WHERE p.position IN :positions          -- ["RB"] or ["RB","WR","TE"] for FLEX
       FROM draft_picks_cache dpc
       WHERE dpc.session_id = :session_id
   )
-ORDER BY p.last_name, p.first_name;
+ORDER BY p.search_rank IS NULL, p.search_rank ASC, p.last_name, p.first_name;
 ```
 
 `positions` is a list to support FLEX expansion. All other position queries pass a single-element list.
+
+Players are ordered by Sleeper's `search_rank` ascending (lower = higher overall draft rank), with `NULL` ranks sorted last (e.g. `NULLS LAST` in Postgres/SQLite dialects that support it). `last_name, first_name` remains the tiebreaker for players sharing a rank or both having `NULL`.

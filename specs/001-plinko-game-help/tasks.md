@@ -147,26 +147,26 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Test file collected; tests fail (route does not exist).
 
-- [ ] Create `backend/app/api/__tests__/test_sessions.py` with `httpx.AsyncClient(app=app)` tests for `POST /api/sessions`:
+- [x] Create `backend/app/api/__tests__/test_sessions.py` with `httpx.AsyncClient(app=app)` tests for `POST /api/sessions`:
   - `201` with valid `sleeper_draft_id` — response body matches contract shape (session + roster_slots).
   - `400` when `sleeper_draft_id` is missing.
   - `404` when Sleeper returns 404 (mock the sleeper service).
   - `502` when Sleeper is unreachable.
-- [ ] Mock `sleeper.fetch_draft` to return a fixture with `settings.slots_qb: 1`, `slots_rb: 2`, `slots_wr: 2`, `slots_te: 1`, `slots_flex: 1`, `slots_k: 1`, `slots_def: 1`.
-- [ ] Mock `sleeper.fetch_picks` to return an empty list.
-- [ ] Mock `sleeper.fetch_players` to return a minimal player dict.
+- [x] Mock `sleeper.fetch_draft` to return a fixture with `settings.slots_qb: 1`, `slots_rb: 2`, `slots_wr: 2`, `slots_te: 1`, `slots_flex: 1`, `slots_k: 1`, `slots_def: 1`.
+- [x] Mock `sleeper.fetch_picks` to return an empty list.
+- [x] Mock `sleeper.fetch_players` to return a minimal player dict.
 
 ### D-2 — Implement `POST /api/sessions` (green) [US4]
 
 **Acceptance**: `pytest app/api/__tests__/test_sessions.py::test_create_session*` passes.
 
-- [ ] Create `backend/app/api/__init__.py`.
-- [ ] Create `backend/app/api/sessions.py` with the `POST /api/sessions` route implementing all five behavior steps from `contracts/api.md`.
-- [ ] Register the router in `app/main.py` under `/api`.
+- [x] Create `backend/app/api/__init__.py`.
+- [x] Create `backend/app/api/sessions.py` with the `POST /api/sessions` route implementing all five behavior steps from `contracts/api.md`.
+- [x] Register the router in `app/main.py` under `/api`.
 
 ### D-3 — Write failing tests for `GET /api/sessions/{id}` and `GET /api/sessions/{id}/positions` [US1, US3]
 
-- [ ] Add tests to `app/api/__tests__/test_sessions.py`:
+- [x] Add tests to `app/api/__tests__/test_sessions.py`:
   - `GET /api/sessions/1` → `200` with full session + roster_slots (mix of filled/unfilled).
   - `GET /api/sessions/999` → `404`.
   - `GET /api/sessions/1/positions` → `200` array of only open slots.
@@ -176,11 +176,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: All new tests pass.
 
-- [ ] Add both routes to `backend/app/api/sessions.py`.
+- [x] Add both routes to `backend/app/api/sessions.py`.
 
 ### D-5 — Write failing tests for `GET /api/sessions/{id}/players/{pos}` [US2]
 
-- [ ] Create `backend/app/api/__tests__/test_players.py` with tests for:
+- [x] Create `backend/app/api/__tests__/test_players.py` with tests for:
   - `200` returns player list filtered by position and excluding locally cached draft picks.
   - FLEX returns union of RB, WR, TE.
   - `400` on unknown position.
@@ -191,11 +191,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/api/__tests__/test_players.py` passes.
 
-- [ ] Create `backend/app/api/players.py` and register under `/api`.
+- [x] Create `backend/app/api/players.py` and register under `/api`.
 
 ### D-7 — Write failing tests for `POST /api/sessions/{id}/position-pick` [US1]
 
-- [ ] Add tests to `app/api/__tests__/test_sessions.py`:
+- [x] Add tests to `app/api/__tests__/test_sessions.py`:
   - `200` returns `{run_id, position}` for a valid open slot.
   - `409` when slot is already filled.
   - `404` when slot ID does not belong to session.
@@ -204,11 +204,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: All new tests pass.
 
-- [ ] Add route to `backend/app/api/sessions.py`.
+- [x] Add route to `backend/app/api/sessions.py`.
 
 ### D-9 — Write failing tests for `POST /api/sessions/{id}/player-pick` [US2]
 
-- [ ] Add tests:
+- [x] Add tests:
   - `200` returns `{run_id, player, session_complete: false}` for a valid pick.
   - `session_complete: true` when this pick fills the last open slot.
   - `409` when player already in `draft_picks_cache` for this session.
@@ -218,11 +218,11 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: All new tests pass.
 
-- [ ] Add route; set `filled_at`, `player_id` on `RosterSlot`; set `completed_at` on session when all slots are filled.
+- [x] Add route; set `filled_at`, `player_id` on `RosterSlot`; set `completed_at` on session when all slots are filled.
 
 ### D-11 — Write failing tests for `POST /api/sessions/{id}/sync` [US2]
 
-- [ ] Add tests:
+- [x] Add tests:
   - `200` returns `{picks_synced, synced_at}`.
   - On Sleeper 502, returns `200` with cached count (non-fatal).
   - A subsequent `GET /api/sessions/{id}/players/{pos}` reads from the refreshed cache without calling Sleeper again.
@@ -231,7 +231,18 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: All new tests pass.
 
-- [ ] Add route; upsert `draft_picks_cache` rows; update `picks_last_synced_at` on session.
+- [x] Add route; upsert `draft_picks_cache` rows; update `picks_last_synced_at` on session.
+
+### D-13 — Sort `GET /api/sessions/{id}/players/{pos}` by Sleeper `search_rank` [US2]
+
+**Acceptance**: `pytest app/api/__tests__/test_players.py app/services/__tests__/test_availability.py` passes; players are returned in ascending `search_rank` order (rank-less players last) instead of alphabetical order.
+
+- [x] Add a `search_rank` (`INTEGER NULLABLE`) column to the `Player` model in `backend/app/models/orm.py`.
+- [x] Update `_upsert_players` in `backend/app/api/sessions.py` to persist `data.get("search_rank")` from the Sleeper player dictionary, in both the insert `values()` and the `on_conflict_do_update` `set_` dict.
+- [x] Update the query in `backend/app/services/availability.py` to `ORDER BY` `search_rank` ascending with `NULL`s last, falling back to `last_name, first_name` as a tiebreaker.
+- [x] Add `search_rank` to `serialize_player()` in `backend/app/api/serializers.py`.
+- [x] Update `PLAYERS_FIXTURE`/mocks in `test_sessions.py` and `test_players.py` to include `search_rank` values (including at least one `None`) and assert sort order and field presence in the response.
+- [x] Add/adjust `test_availability.py` cases to cover ranked vs. unranked players and the alphabetical tiebreaker.
 
 ---
 

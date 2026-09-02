@@ -26,6 +26,7 @@ class Player(Base):
     position: Mapped[str | None] = mapped_column(Text)
     team: Mapped[str | None] = mapped_column(Text, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    search_rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     synced_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     __table_args__ = (Index("ix_players_position_active", "position", "active"),)

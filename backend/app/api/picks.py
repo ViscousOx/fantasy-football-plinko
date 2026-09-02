@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
-from app.models.orm import PlinkoRun, PlinkoSession, Player, RosterSlot
+from app.models.orm import DraftPicksCache, Player, PlinkoRun, PlinkoSession, RosterSlot
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +113,29 @@ async def player_pick(
         if player is None:
             raise HTTPException(status_code=404, detail="Player not found")
 
+        taken_result = await db.execute(
+            select(DraftPicksCache).where(
+                DraftPicksCache.session_id == session_id,
+                DraftPicksCache.sleeper_player_id == player.sleeper_id,
+            )
+        )
+        if taken_result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=409, detail="Player already drafted in this session"
+            )
+
+        dup_result = await db.execute(
+            select(RosterSlot).where(
+                RosterSlot.session_id == session_id,
+                RosterSlot.player_id == player.id,
+                RosterSlot.id != slot.id,
+            )
+        )
+        if dup_result.scalar_one_or_none() is not None:
+            raise HTTPException(
+                status_code=409, detail="Player already taken for this session"
+            )
+
         now = datetime.now(UTC)
         slot.filled_at = now
         slot.player_id = player.id
@@ -125,6 +148,19 @@ async def player_pick(
             created_at=now,
         )
         db.add(run)
+
+        remaining = await db.execute(
+            select(RosterSlot)
+            .where(RosterSlot.session_id == session_id)
+            .where(RosterSlot.filled_at.is_(None))
+        )
+        open_remaining = [
+            s for s in remaining.scalars().all() if s.id != slot.id
+        ]
+        session_complete = len(open_remaining) == 0
+        if session_complete:
+            plinko_session.completed_at = now
+
         await db.commit()
         await db.refresh(run)
 
@@ -139,7 +175,7 @@ async def player_pick(
                 "position": player.position,
                 "team": player.team,
             },
-            "session_complete": False,
+            "session_complete": session_complete,
         }
     finally:
         duration_ms = (time.perf_counter() - start) * 1000

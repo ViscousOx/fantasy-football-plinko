@@ -1,16 +1,12 @@
 import logging
-import os
 from datetime import UTC, datetime
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
-
-from app.db import async_session_factory, init_db  # noqa: E402
-from app.main import app  # noqa: E402
-from app.models.orm import PlinkoSession, Player, RosterSlot  # noqa: E402
+from app.main import app
+from app.models.orm import Player, PlinkoSession, RosterSlot
 
 
 async def _seed_session(db: AsyncSession) -> tuple[int, int, int]:
@@ -45,20 +41,20 @@ async def _seed_session(db: AsyncSession) -> tuple[int, int, int]:
     return plinko_session.id, slot.id, player.id
 
 
-async def test_position_pick_emits_structured_log(caplog: pytest.LogCaptureFixture) -> None:
-    await init_db()
-
-    async with async_session_factory() as db:
+async def test_position_pick_emits_structured_log(
+    caplog: pytest.LogCaptureFixture,
+    client: AsyncClient,
+    session_factory: async_sessionmaker,
+) -> None:
+    async with session_factory() as db:
         session_id, slot_id, _ = await _seed_session(db)
 
     caplog.set_level(logging.INFO, logger="app.api.picks")
 
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.post(
-            f"/api/sessions/{session_id}/position-pick",
-            json={"roster_slot_id": slot_id},
-        )
+    response = await client.post(
+        f"/api/sessions/{session_id}/position-pick",
+        json={"roster_slot_id": slot_id},
+    )
 
     assert response.status_code == 200
     pick_logs = [r for r in caplog.records if r.getMessage() == "position_pick"]

@@ -24,7 +24,7 @@ Create a new plinko session by syncing an existing Sleeper draft.
 **Behavior**:
 1. Calls `GET https://api.sleeper.app/v1/draft/{draft_id}` to read roster slot counts.
 2. Creates `plinko_sessions` row.
-3. Creates `roster_slots` rows from `settings.slots_*` (bench excluded).
+3. Creates `roster_slots` rows from `settings.slots_*`, including bench (`slots_bn` → `BN` slots).
 4. Calls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and seeds `draft_picks_cache`.
 5. Ensures player dictionary is fresh (triggers sync if `last_synced_at` > 24 hours ago).
 
@@ -65,7 +65,7 @@ Retrieve full session state including all roster slots and their fill status.
     { "id": 1, "position": "QB", "slot_order": 1, "filled_at": null, "player": null },
     { "id": 2, "position": "RB", "slot_order": 2, "filled_at": "2026-08-19T14:05:00Z",
       "player": { "id": 42, "sleeper_id": "2391", "first_name": "David", "last_name": "Johnson",
-                  "position": "RB", "team": "ARI" } }
+                  "position": "RB", "team": "ARI", "search_rank": 512 } }
   ]
 }
 ```
@@ -101,16 +101,16 @@ List all players available for drafting at a given position, cross-referenced ag
 **Behavior**:
 - For `FLEX`, queries `position IN ("RB", "WR", "TE")`.
 - Subtracts all `sleeper_id` values present in `draft_picks_cache` for this session.
-- Returns players sorted by `last_name ASC, first_name ASC`.
+- Returns players sorted by Sleeper's `search_rank ASC` (overall draft rank; lower = more draftable), with `NULL` ranks sorted last, then `last_name ASC, first_name ASC` as a tiebreaker.
 - Reads only from the local cache; callers should invoke `POST /api/sessions/{session_id}/sync` before rendering a player board when fresh Sleeper data is required.
 
 **Response `200 OK`**:
 ```json
 [
   { "id": 10, "sleeper_id": "4046", "first_name": "Saquon", "last_name": "Barkley",
-    "position": "RB", "team": "NYG" },
+    "position": "RB", "team": "NYG", "search_rank": 12 },
   { "id": 11, "sleeper_id": "1408", "first_name": "Le'Veon", "last_name": "Bell",
-    "position": "RB", "team": "PIT" }
+    "position": "RB", "team": "PIT", "search_rank": 340 }
 ]
 ```
 
@@ -176,7 +176,7 @@ Record the result of a player-board plinko drop (a specific player was selected)
   "run_id": 6,
   "player": {
     "id": 10, "sleeper_id": "4046", "first_name": "Saquon", "last_name": "Barkley",
-    "position": "RB", "team": "NYG"
+    "position": "RB", "team": "NYG", "search_rank": 12
   },
   "session_complete": false
 }

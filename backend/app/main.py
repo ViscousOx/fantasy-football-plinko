@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import APIRouter, FastAPI, Request
 
 from app.api.picks import router as picks_router
+from app.api.players import router as players_router
+from app.api.sessions import router as sessions_router
 from app.db import init_db
 from app.logging_config import configure_logging
 
@@ -21,6 +23,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 api_router = APIRouter()
+api_router.include_router(sessions_router)
+api_router.include_router(players_router)
 api_router.include_router(picks_router)
 app.include_router(api_router, prefix="/api")
 

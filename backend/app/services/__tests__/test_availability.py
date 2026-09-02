@@ -6,9 +6,10 @@ import respx
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
-from app.db import async_session_factory, engine  # noqa: E402
-from app.models.orm import Base, DraftPicksCache, PlinkoSession, Player  # noqa: E402
-from app.services.availability import (  # noqa: E402
+from app.db import async_session_factory, engine
+from app.models.orm import Base, DraftPicksCache, Player, PlinkoSession
+from app.services.availability import (
+    BENCH_POSITIONS,
     FLEX_POSITIONS,
     VALID_POSITIONS,
     get_available_players,
@@ -131,7 +132,21 @@ async def test_get_available_players_flex_includes_rb_wr_te_union() -> None:
     assert "rb1" not in sleeper_ids
 
 
-async def test_get_available_players_sorted_by_last_name_then_first_name() -> None:
+async def test_get_available_players_bench_includes_all_positions_union() -> None:
+    session_id = await _seed_availability_fixtures()
+
+    async with async_session_factory() as db:
+        available = await get_available_players(db, session_id, "BN")
+
+    positions = {player.position for player in available}
+    sleeper_ids = {player.sleeper_id for player in available}
+
+    assert positions.issubset(set(BENCH_POSITIONS))
+    assert sleeper_ids == {"rb2", "wr1", "te1"}
+    assert "rb1" not in sleeper_ids
+
+
+async def test_get_available_players_sorted_by_search_rank_then_name() -> None:
     now = datetime.now(UTC)
 
     async with async_session_factory() as db:
@@ -145,6 +160,7 @@ async def test_get_available_players_sorted_by_last_name_then_first_name() -> No
                     last_name="Hill",
                     position="WR",
                     active=True,
+                    search_rank=3,
                     synced_at=now,
                 ),
                 Player(
@@ -153,6 +169,7 @@ async def test_get_available_players_sorted_by_last_name_then_first_name() -> No
                     last_name="Diggs",
                     position="WR",
                     active=True,
+                    search_rank=1,
                     synced_at=now,
                 ),
                 Player(
@@ -170,8 +187,11 @@ async def test_get_available_players_sorted_by_last_name_then_first_name() -> No
 
         available = await get_available_players(db, session.id, "WR")
 
-    names = [(player.last_name, player.first_name) for player in available]
-    assert names == sorted(names)
+    ranks = [p.search_rank for p in available]
+    assert ranks == [1, 3, None]
+    assert available[0].sleeper_id == "wr-b"
+    assert available[1].sleeper_id == "wr-a"
+    assert available[2].sleeper_id == "wr-c"
 
 
 @respx.mock
@@ -188,4 +208,5 @@ async def test_get_available_players_reads_only_local_tables() -> None:
 
 def test_valid_positions_constant() -> None:
     assert "FLEX" in VALID_POSITIONS
+    assert "BN" in VALID_POSITIONS
     assert "QB" in VALID_POSITIONS
