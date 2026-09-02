@@ -9,6 +9,7 @@ def serialize_player(player: Player) -> dict:
         "last_name": player.last_name,
         "position": player.position,
         "team": player.team,
+        "search_rank": player.search_rank,
     }
 
 

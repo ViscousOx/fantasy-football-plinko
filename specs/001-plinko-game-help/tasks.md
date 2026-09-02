@@ -237,12 +237,12 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `pytest app/api/__tests__/test_players.py app/services/__tests__/test_availability.py` passes; players are returned in ascending `search_rank` order (rank-less players last) instead of alphabetical order.
 
-- [ ] Add a `search_rank` (`INTEGER NULLABLE`) column to the `Player` model in `backend/app/models/orm.py`.
-- [ ] Update `_upsert_players` in `backend/app/api/sessions.py` to persist `data.get("search_rank")` from the Sleeper player dictionary, in both the insert `values()` and the `on_conflict_do_update` `set_` dict.
-- [ ] Update the query in `backend/app/services/availability.py` to `ORDER BY` `search_rank` ascending with `NULL`s last, falling back to `last_name, first_name` as a tiebreaker.
-- [ ] Add `search_rank` to `serialize_player()` in `backend/app/api/serializers.py`.
-- [ ] Update `PLAYERS_FIXTURE`/mocks in `test_sessions.py` and `test_players.py` to include `search_rank` values (including at least one `None`) and assert sort order and field presence in the response.
-- [ ] Add/adjust `test_availability.py` cases to cover ranked vs. unranked players and the alphabetical tiebreaker.
+- [x] Add a `search_rank` (`INTEGER NULLABLE`) column to the `Player` model in `backend/app/models/orm.py`.
+- [x] Update `_upsert_players` in `backend/app/api/sessions.py` to persist `data.get("search_rank")` from the Sleeper player dictionary, in both the insert `values()` and the `on_conflict_do_update` `set_` dict.
+- [x] Update the query in `backend/app/services/availability.py` to `ORDER BY` `search_rank` ascending with `NULL`s last, falling back to `last_name, first_name` as a tiebreaker.
+- [x] Add `search_rank` to `serialize_player()` in `backend/app/api/serializers.py`.
+- [x] Update `PLAYERS_FIXTURE`/mocks in `test_sessions.py` and `test_players.py` to include `search_rank` values (including at least one `None`) and assert sort order and field presence in the response.
+- [x] Add/adjust `test_availability.py` cases to cover ranked vs. unranked players and the alphabetical tiebreaker.
 
 ---
 

@@ -146,7 +146,7 @@ async def test_get_available_players_bench_includes_all_positions_union() -> Non
     assert "rb1" not in sleeper_ids
 
 
-async def test_get_available_players_sorted_by_last_name_then_first_name() -> None:
+async def test_get_available_players_sorted_by_search_rank_then_name() -> None:
     now = datetime.now(UTC)
 
     async with async_session_factory() as db:
@@ -160,6 +160,7 @@ async def test_get_available_players_sorted_by_last_name_then_first_name() -> No
                     last_name="Hill",
                     position="WR",
                     active=True,
+                    search_rank=3,
                     synced_at=now,
                 ),
                 Player(
@@ -168,6 +169,7 @@ async def test_get_available_players_sorted_by_last_name_then_first_name() -> No
                     last_name="Diggs",
                     position="WR",
                     active=True,
+                    search_rank=1,
                     synced_at=now,
                 ),
                 Player(
@@ -185,8 +187,11 @@ async def test_get_available_players_sorted_by_last_name_then_first_name() -> No
 
         available = await get_available_players(db, session.id, "WR")
 
-    names = [(player.last_name, player.first_name) for player in available]
-    assert names == sorted(names)
+    ranks = [p.search_rank for p in available]
+    assert ranks == [1, 3, None]
+    assert available[0].sleeper_id == "wr-b"
+    assert available[1].sleeper_id == "wr-a"
+    assert available[2].sleeper_id == "wr-c"
 
 
 @respx.mock

@@ -15,6 +15,7 @@ async def _seed_session_with_players(session_factory, positions=("QB", "RB", "RB
                     position=("RB" if i < 2 else "WR"),
                     team="NYG",
                     active=True,
+                    search_rank=(1 if i == 0 else None),
                 )
             )
         session = PlinkoSession(sleeper_draft_id="x", created_at=datetime.now(UTC))
@@ -101,3 +102,27 @@ async def test_get_players_excludes_cached_draft_picks(client, session_factory):
     sleeper_ids = {p["sleeper_id"] for p in body}
     assert "2000" not in sleeper_ids
     assert len(body) == 1
+
+
+async def test_get_players_sorted_by_search_rank(client, session_factory):
+    session_id = await _seed_session_with_players(session_factory)
+
+    resp = await client.get(f"/api/sessions/{session_id}/players/RB")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    ranks = [p["search_rank"] for p in body]
+    assert ranks == sorted(ranks, key=lambda r: (r is None, r or 0))
+    assert body[0]["search_rank"] == 1
+    assert body[-1]["search_rank"] is None
+
+
+async def test_get_players_includes_search_rank_field(client, session_factory):
+    session_id = await _seed_session_with_players(session_factory)
+
+    resp = await client.get(f"/api/sessions/{session_id}/players/RB")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    for p in body:
+        assert "search_rank" in p

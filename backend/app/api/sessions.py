@@ -39,6 +39,7 @@ async def _upsert_players(players: dict, db: AsyncSession) -> None:
             position=data.get("position"),
             team=data.get("team"),
             active=data.get("status") == "Active",
+            search_rank=data.get("search_rank"),
             synced_at=datetime.now(UTC),
         )
         stmt = stmt.on_conflict_do_update(
@@ -49,6 +50,7 @@ async def _upsert_players(players: dict, db: AsyncSession) -> None:
                 "position": stmt.excluded.position,
                 "team": stmt.excluded.team,
                 "active": stmt.excluded.active,
+                "search_rank": stmt.excluded.search_rank,
                 "synced_at": stmt.excluded.synced_at,
             },
         )

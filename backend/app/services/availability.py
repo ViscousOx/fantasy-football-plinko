@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import DraftPicksCache, Player
@@ -34,7 +34,11 @@ async def get_available_players(
         .where(Player.position.in_(positions))
         .where(Player.active.is_(True))
         .where(Player.sleeper_id.not_in(drafted_subq))
-        .order_by(Player.last_name, Player.first_name)
+        .order_by(
+            nullslast(Player.search_rank.asc()),
+            Player.last_name,
+            Player.first_name,
+        )
     )
 
     result = await session.execute(stmt)

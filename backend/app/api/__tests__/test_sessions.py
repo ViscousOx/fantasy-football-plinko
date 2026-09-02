@@ -24,8 +24,8 @@ PICKS_FIXTURE = [
     {"pick_no": 2, "player_id": "1408"},
 ]
 PLAYERS_FIXTURE = {
-    "4046": {"player_id": "4046", "first_name": "Saquon", "last_name": "Barkley", "position": "RB", "team": "NYG", "status": "Active"},
-    "1408": {"player_id": "1408", "first_name": "Le'Veon", "last_name": "Bell", "position": "RB", "team": "PIT", "status": "Active"},
+    "4046": {"player_id": "4046", "first_name": "Saquon", "last_name": "Barkley", "position": "RB", "team": "NYG", "status": "Active", "search_rank": 1},
+    "1408": {"player_id": "1408", "first_name": "Le'Veon", "last_name": "Bell", "position": "RB", "team": "PIT", "status": "Active", "search_rank": 3},
 }
 
 
