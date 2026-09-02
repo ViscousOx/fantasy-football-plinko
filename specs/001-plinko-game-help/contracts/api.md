@@ -24,7 +24,7 @@ Create a new plinko session by syncing an existing Sleeper draft.
 **Behavior**:
 1. Calls `GET https://api.sleeper.app/v1/draft/{draft_id}` to read roster slot counts.
 2. Creates `plinko_sessions` row.
-3. Creates `roster_slots` rows from `settings.slots_*` (bench excluded).
+3. Creates `roster_slots` rows from `settings.slots_*`, including bench (`slots_bn` → `BN` slots).
 4. Calls `GET https://api.sleeper.app/v1/draft/{draft_id}/picks` and seeds `draft_picks_cache`.
 5. Ensures player dictionary is fresh (triggers sync if `last_synced_at` > 24 hours ago).
 

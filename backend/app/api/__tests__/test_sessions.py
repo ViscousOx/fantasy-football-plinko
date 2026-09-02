@@ -14,6 +14,7 @@ DRAFT_FIXTURE = {
         "slots_wr": 2,
         "slots_te": 1,
         "slots_flex": 1,
+        "slots_bn": 2,
         "slots_k": 1,
         "slots_def": 1,
     },
@@ -28,7 +29,7 @@ PLAYERS_FIXTURE = {
 }
 
 
-async def _seed_session(session_factory, positions=("QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"), filled=None):
+async def _seed_session(session_factory, positions=("QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "BN", "BN", "K", "DEF"), filled=None):
     async with session_factory() as db:
         existing = (await db.execute(select(Player).limit(1))).scalar_one_or_none()
         if existing is None:
@@ -98,7 +99,7 @@ async def test_create_session_201(mock_draft, mock_picks, mock_players, client):
     assert body["sleeper_draft_id"] == "257270643320426496"
     assert body["completed_at"] is None
     positions = [s["position"] for s in body["roster_slots"]]
-    assert positions == ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "K", "DEF"]
+    assert positions == ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "BN", "BN", "K", "DEF"]
     assert all(s["filled_at"] is None for s in body["roster_slots"])
 
 
@@ -144,7 +145,7 @@ async def test_get_session_200(client, session_factory):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["id"] == session_id
-    assert len(body["roster_slots"]) == 9
+    assert len(body["roster_slots"]) == 11
     assert all(s["filled_at"] is None for s in body["roster_slots"])
 
 
@@ -160,7 +161,7 @@ async def test_get_positions_returns_only_open(client, session_factory):
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert len(body) == 9
+    assert len(body) == 11
     assert all(s["filled_at"] is None for s in body)
 
 

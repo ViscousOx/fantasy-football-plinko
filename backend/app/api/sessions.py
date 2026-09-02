@@ -22,6 +22,7 @@ SLOT_SETTINGS_KEYS = {
     "WR": "slots_wr",
     "TE": "slots_te",
     "FLEX": "slots_flex",
+    "BN": "slots_bn",
     "K": "slots_k",
     "DEF": "slots_def",
 }

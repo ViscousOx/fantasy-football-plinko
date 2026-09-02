@@ -20,6 +20,8 @@ dev = [
     "respx",
     "coverage",
     "pytest-cov",
+    "taskipy>=1.14.1",
+    "ruff>=0.16.5",
 ]
 
 [tool.pytest.ini_options]
@@ -35,3 +37,8 @@ ignore = ["B008"]
 
 [tool.coverage.run]
 source = ["app"]
+
+[tool.taskipy.tasks]
+test = "uv run pytest"
+lint = "uv run ruff check ."
+start = "uvicorn app.main:app --port 8000"

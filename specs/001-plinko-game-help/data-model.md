@@ -60,7 +60,7 @@ Seeded from `draft.settings` (e.g. `slots_rb: 2` → two rows with `position = "
 |---|---|---|
 | `id` | INTEGER PK | Auto-increment |
 | `session_id` | INTEGER FK → `plinko_sessions.id` | |
-| `position` | TEXT NOT NULL | `QB`, `RB`, `WR`, `TE`, `FLEX`, `K`, `DEF` |
+| `position` | TEXT NOT NULL | `QB`, `RB`, `WR`, `TE`, `FLEX`, `BN`, `K`, `DEF` |
 | `slot_order` | INTEGER | Display order on the position board (1-indexed) |
 | `filled_at` | DATETIME NULLABLE | NULL = still open |
 | `player_id` | INTEGER FK → `players.id` NULLABLE | Set when the slot is filled |
@@ -69,7 +69,7 @@ Seeded from `draft.settings` (e.g. `slots_rb: 2` → two rows with `position = "
 
 **Constraint**: `(session_id, slot_order)` UNIQUE — prevents duplicate slot assignments.
 
-> **Bench seats** (`slots_bn`) are excluded — bench positions do not appear on the plinko boards per the spec.
+> **Bench seats** (`slots_bn`) are included as `BN` roster slots and appear on the plinko boards. Like `FLEX`, a `BN` slot is not locked to a single position — its available-player pool is the union of all startable positions (`QB`, `RB`, `WR`, `TE`, `K`, `DEF`), since a bench spot can hold any drafted player.
 
 ---
 
@@ -150,7 +150,7 @@ interface Player {
 }
 
 // Position enum — must match backend values exactly
-type Position = "QB" | "RB" | "WR" | "TE" | "FLEX" | "K" | "DEF";
+type Position = "QB" | "RB" | "WR" | "TE" | "FLEX" | "BN" | "K" | "DEF";
 
 // Plinko run payload sent by the frontend
 interface PositionPickPayload {
