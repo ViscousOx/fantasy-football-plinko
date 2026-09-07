@@ -24,7 +24,7 @@ async function apiRequest<T>(
   url: string,
   options?: RequestInit
 ): Promise<T> {
-  const response = await fetch(url, options);
+  const response = options ? await fetch(url, options) : await fetch(url);
 
   if (!response.ok) {
     throw new Error(
