@@ -252,12 +252,12 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm run dev` starts Vite dev server; `npm run build` produces `dist/`.
 
-- [ ] Create `frontend/` directory.
-- [ ] Run `npm create vite@latest frontend -- --template vanilla-ts` (or create `package.json` manually).
-- [ ] Add dependencies: `phaser` (pin latest stable 3.x release).
-- [ ] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
-- [ ] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
-- [ ] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000` and Vitest `coverage.thresholds` set to `{ "src/entities/**": { branches: 100, functions: 100 } }` (constitution §III).
+- [x] Create `frontend/` directory.
+- [x] Run `npm create vite@latest frontend -- --template vanilla-ts` (or create `package.json` manually).
+- [x] Add dependencies: `phaser` (pin latest stable 3.x release).
+- [x] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
+- [x] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
+- [x] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000` and Vitest `coverage.thresholds` set to `{ "src/entities/**": { branches: 100, functions: 100 } }` (constitution §III).
 
 ---
 
