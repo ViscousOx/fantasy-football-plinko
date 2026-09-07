@@ -267,7 +267,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` collects tests; all fail (module not found).
 
-- [ ] Create `frontend/src/services/__tests__/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
+- [x] Create `frontend/src/services/__tests__/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
   - `createSession(draft_id)` posts to `POST /api/sessions` and returns a `Session`.
   - `getSession(id)` fetches `GET /api/sessions/{id}` and returns a `Session`.
   - `getOpenPositions(id)` fetches `GET /api/sessions/{id}/positions` and returns `RosterSlot[]`.
@@ -281,8 +281,8 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` — all api.test.ts tests pass.
 
-- [ ] Create `frontend/src/types/index.ts` with all interfaces and the `Position` type from `data-model.md § Frontend`.
-- [ ] Create `frontend/src/services/api.ts` with typed `fetch` wrappers for all seven endpoints.
+- [x] Create `frontend/src/types/index.ts` with all interfaces and the `Position` type from `data-model.md § Frontend`.
+- [x] Create `frontend/src/services/api.ts` with typed `fetch` wrappers for all seven endpoints.
 
 ---
 
