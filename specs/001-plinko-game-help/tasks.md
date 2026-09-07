@@ -252,12 +252,12 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm run dev` starts Vite dev server; `npm run build` produces `dist/`.
 
-- [ ] Create `frontend/` directory.
-- [ ] Run `npm create vite@latest frontend -- --template vanilla-ts` (or create `package.json` manually).
-- [ ] Add dependencies: `phaser` (pin latest stable 3.x release).
-- [ ] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
-- [ ] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
-- [ ] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000` and Vitest `coverage.thresholds` set to `{ "src/entities/**": { branches: 100, functions: 100 } }` (constitution §III).
+- [x] Create `frontend/` directory.
+- [x] Run `npm create vite@latest frontend -- --template vanilla-ts` (or create `package.json` manually).
+- [x] Add dependencies: `phaser` (pin latest stable 3.x release).
+- [x] Add dev dependencies: `vitest`, `@vitest/browser`, `typescript`, `vite`.
+- [x] Create `frontend/tsconfig.json` (strict mode, `"lib": ["dom", "esnext"]`).
+- [x] Create `frontend/vite.config.ts` with `/api` proxy pointing to `http://localhost:8000` and Vitest `coverage.thresholds` set to `{ "src/entities/**": { branches: 100, functions: 100 } }` (constitution §III).
 
 ---
 
@@ -267,7 +267,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` collects tests; all fail (module not found).
 
-- [ ] Create `frontend/src/services/__tests__/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
+- [x] Create `frontend/src/services/__tests__/api.test.ts` using Vitest `vi.spyOn(globalThis, "fetch")` to mock HTTP calls, asserting:
   - `createSession(draft_id)` posts to `POST /api/sessions` and returns a `Session`.
   - `getSession(id)` fetches `GET /api/sessions/{id}` and returns a `Session`.
   - `getOpenPositions(id)` fetches `GET /api/sessions/{id}/positions` and returns `RosterSlot[]`.
@@ -281,8 +281,8 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` — all api.test.ts tests pass.
 
-- [ ] Create `frontend/src/types/index.ts` with all interfaces and the `Position` type from `data-model.md § Frontend`.
-- [ ] Create `frontend/src/services/api.ts` with typed `fetch` wrappers for all seven endpoints.
+- [x] Create `frontend/src/types/index.ts` with all interfaces and the `Position` type from `data-model.md § Frontend`.
+- [x] Create `frontend/src/services/api.ts` with typed `fetch` wrappers for all seven endpoints.
 
 ---
 
