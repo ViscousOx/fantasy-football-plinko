@@ -350,7 +350,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Tests collected; all fail with `Cannot find module`.
 
-- [ ] Create `frontend/src/scenes/__tests__/PositionBoardScene.test.ts` using Vitest with mocked `api.*` calls (`vi.mock('../services/api')`):
+- [x] Create `frontend/src/scenes/__tests__/PositionBoardScene.test.ts` using Vitest with mocked `api.*` calls (`vi.mock('../services/api')`):
   - **Draft-complete guard**: `getOpenPositions` returns `[]` → scene calls no `PlinkoBoard` constructor and renders draft-complete state.
   - **Normal load**: `getOpenPositions` returns N slots → `PlinkoBoard` constructed with `slotCount = N`; slot labels match position names.
   - **Post-drop API call**: after ball exits slot index `i`, `recordPositionPick` is called with `openSlots[i].id`; scene transitions to `PlayerBoardScene` with correct `position`.
@@ -359,7 +359,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/src/scenes/__tests__/PlayerBoardScene.test.ts`:
+- [x] Create `frontend/src/scenes/__tests__/PlayerBoardScene.test.ts`:
   - **Empty-player guard**: `getPlayers` returns `[]` → scene shows error state and does not construct a `PlinkoBoard`; scene transitions back to `PositionBoardScene`.
   - **Normal load**: `getPlayers` returns M players → `PlinkoBoard` constructed with `slotCount = M`; player labels rendered.
   - **Post-drop API call**: `recordPlayerPick` called with correct `roster_slot_id` and `players[slotIndex].id`; transitions to `CongratsScene`.
@@ -368,7 +368,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/src/scenes/__tests__/CongratsScene.test.ts`:
+- [x] Create `frontend/src/scenes/__tests__/CongratsScene.test.ts`:
   - **Normal variant**: scene receives `{ player, session_complete: false }` → displays `"Draft [First Last]!"` text; dismiss button starts `PositionBoardScene`.
   - **Complete variant**: `session_complete: true` → displays `"Draft Complete!"` text; dismiss button does **not** start `PositionBoardScene`.
 
