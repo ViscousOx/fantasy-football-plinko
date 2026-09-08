@@ -6,6 +6,12 @@ import { Player, RosterSlot } from "../../types";
 // Mock the api module
 vi.mock("../../services/api");
 
+// Phaser.Scene only gets real `add`/`cameras`/`scene` properties once booted
+// by a running Phaser.Game. Use a lightweight test double so scenes can be
+// unit tested in isolation without a real game/canvas (see
+// src/test/mocks/phaser.ts for details).
+vi.mock("phaser", () => import("../../test/mocks/phaser"));
+
 describe("PlayerBoardScene", () => {
   let scene: PlayerBoardScene;
   const mockSessionId = 1;

@@ -10,6 +10,7 @@
  * - Show error message on failure (404, 502)
  */
 
+import Phaser from "phaser";
 import * as api from "../services/api";
 
 export class SetupScene extends Phaser.Scene {

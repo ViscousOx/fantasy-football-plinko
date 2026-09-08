@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CongratsScene } from "../CongratsScene";
 import { Player } from "../../types";
 
+// Phaser.Scene only gets real `add`/`cameras`/`scene` properties once booted
+// by a running Phaser.Game. Use a lightweight test double so scenes can be
+// unit tested in isolation without a real game/canvas (see
+// src/test/mocks/phaser.ts for details).
+vi.mock("phaser", () => import("../../test/mocks/phaser"));
+
 describe("CongratsScene", () => {
   let scene: CongratsScene;
   const mockSessionId = 1;

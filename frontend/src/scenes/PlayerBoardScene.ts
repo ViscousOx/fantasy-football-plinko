@@ -12,6 +12,7 @@
  * - Transition to CongratsScene with player data and session_complete flag
  */
 
+import Phaser from "phaser";
 import * as api from "../services/api";
 import { PlinkoBoard } from "../entities/PlinkoBoard";
 import { PlinkoBall } from "../entities/PlinkoBall";

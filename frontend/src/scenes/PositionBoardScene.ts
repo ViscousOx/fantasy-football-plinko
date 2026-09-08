@@ -11,6 +11,7 @@
  * - Transition to PlayerBoardScene with correct parameters
  */
 
+import Phaser from "phaser";
 import * as api from "../services/api";
 import { PlinkoBoard } from "../entities/PlinkoBoard";
 import { PlinkoBall } from "../entities/PlinkoBall";

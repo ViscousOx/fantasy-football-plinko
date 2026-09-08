@@ -9,6 +9,7 @@
  * - If draft is complete, stay on screen and don't transition
  */
 
+import Phaser from "phaser";
 import type { Player } from "../types";
 
 interface SceneData {
