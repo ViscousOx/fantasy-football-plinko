@@ -19,6 +19,9 @@ const config: Phaser.Types.Core.GameConfig = {
   width: 800,
   height: 600,
   parent: "app",
+  dom: {
+    createContainer: true,
+  },
   physics: {
     default: "matter",
     matter: {
