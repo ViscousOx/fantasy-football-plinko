@@ -15,6 +15,16 @@ import type {
   SyncResponse,
 } from "../types/index";
 
+export type {
+  Session,
+  Player,
+  RosterSlot,
+  Position,
+  PositionPickResponse,
+  PlayerPickResponse,
+  SyncResponse,
+};
+
 const BASE_URL = "/api";
 
 /**

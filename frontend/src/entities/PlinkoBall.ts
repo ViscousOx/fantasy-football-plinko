@@ -47,6 +47,7 @@ export class PlinkoBall {
   private ballRadius: number = 6;
   private maxFrameBudget: number = 16; // milliseconds per frame
   private logger: Logger | null = null;
+  private lastPath: { x: number; y: number }[] = [];
 
   constructor(seed: number, logger?: Logger) {
     this.seed = seed;
@@ -55,16 +56,35 @@ export class PlinkoBall {
   }
 
   /**
-   * Simulate ball drop through plinko board and return final slot index
+   * Get the recorded (x, y) trajectory from the most recent drop() call.
+   * Used by the rendering layer to animate the ball bouncing through the
+   * pegs instead of just tweening straight down to the final slot.
    */
-  drop(board: PlinkoBoard): number {
+  getLastPath(): { x: number; y: number }[] {
+    return this.lastPath;
+  }
+
+  /**
+   * Simulate ball drop through plinko board and return final slot index
+   *
+   * @param board - The plinko board to drop through
+   * @param startX - Optional horizontal starting position (e.g. from user click/tap).
+   *                 Defaults to the board's horizontal center if not provided.
+   */
+  drop(board: PlinkoBoard, startX?: number): number {
     const boardDimensions = board.getBoardDimensions();
     const slotCount = board.getSlotCount();
     const pegs = board.getPegPositions();
 
-    // Initialize ball at top center
+    const initialX =
+      startX === undefined ? boardDimensions.width / 2 : startX;
+
+    // Initialize ball at the requested drop position (clamped to board bounds)
     const physics: BallPhysics = {
-      x: boardDimensions.width / 2,
+      x: Math.max(
+        this.ballRadius,
+        Math.min(boardDimensions.width - this.ballRadius, initialX)
+      ),
       y: 20,
       vx: (this.rng.next() - 0.5) * 2, // Small random horizontal velocity
       vy: 0,
@@ -74,6 +94,9 @@ export class PlinkoBall {
     let frameCount = 0;
     let hasExited = false;
     let exitSlot = -1;
+
+    // Reset the recorded trajectory for this drop
+    this.lastPath = [{ x: physics.x, y: physics.y }];
 
     // Simulation loop with frame budget enforcement
     while (!hasExited && frameCount < 1000) {
@@ -108,12 +131,11 @@ export class PlinkoBall {
             physics.x = peg.x + Math.cos(angle) * minDist;
             physics.y = peg.y + Math.sin(angle) * minDist;
 
-            physics.vx = Math.cos(angle) * this.bounce * Math.sqrt(
-              physics.vx ** 2 + physics.vy ** 2
-            );
-            physics.vy = Math.sin(angle) * this.bounce * Math.sqrt(
-              physics.vx ** 2 + physics.vy ** 2
-            );
+            // Capture the pre-bounce speed before mutating vx/vy so vy's
+            // calculation doesn't use the already-updated vx value.
+            const speed = Math.sqrt(physics.vx ** 2 + physics.vy ** 2);
+            physics.vx = Math.cos(angle) * this.bounce * speed;
+            physics.vy = Math.sin(angle) * this.bounce * speed;
           }
         }
       }
@@ -127,6 +149,10 @@ export class PlinkoBall {
         physics.x = boardDimensions.width - this.ballRadius;
         physics.vx = -Math.abs(physics.vx) * this.bounce;
       }
+
+      // Record the ball's position for this frame so the renderer can
+      // animate the ball actually bouncing through the pegs.
+      this.lastPath.push({ x: physics.x, y: physics.y });
 
       // Check if ball has exited the board at the bottom
       if (physics.y > boardDimensions.height - 50) {

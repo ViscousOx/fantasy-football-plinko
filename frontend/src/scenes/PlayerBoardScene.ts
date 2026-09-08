@@ -140,27 +140,31 @@ export class PlayerBoardScene extends Phaser.Scene {
   private renderErrorState(): void {
     const { width, height } = this.cameras.main;
 
-    this.add.text(
-      width / 2,
-      height / 2,
-      "No players available for this position.",
-      {
-        fontSize: "24px",
-        color: "#dd0000",
-        align: "center",
-      }
-    );
+    this.add
+      .text(
+        width / 2,
+        height / 2,
+        "No players available for this position.",
+        {
+          fontSize: "24px",
+          color: "#dd0000",
+          align: "center",
+        }
+      )
+      .setOrigin(0.5);
 
-    this.add.text(
-      width / 2,
-      height / 2 + 40,
-      "Returning to position board...",
-      {
-        fontSize: "16px",
-        color: "#666666",
-        align: "center",
-      }
-    );
+    this.add
+      .text(
+        width / 2,
+        height / 2 + 40,
+        "Returning to position board...",
+        {
+          fontSize: "16px",
+          color: "#666666",
+          align: "center",
+        }
+      )
+      .setOrigin(0.5);
 
     // Auto-transition back to PositionBoardScene after 2 seconds
     this.time.delayedCall(2000, () => {
@@ -179,24 +183,25 @@ export class PlayerBoardScene extends Phaser.Scene {
       Phaser.Geom.Rectangle.Contains
     );
 
-    graphics.on("pointerdown", () => {
+    graphics.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!this.isDropping) {
-        this.dropBall();
+        this.dropBall(pointer.x);
       }
     });
   }
 
-  private async dropBall(): Promise<void> {
+  private async dropBall(startX: number): Promise<void> {
     if (!this.board || this.isDropping) return;
 
     this.isDropping = true;
 
     try {
       const ball = new PlinkoBall(Math.random() * 1000000);
-      const slotIndex = await ball.drop(this.board);
+      const slotIndex = ball.drop(this.board, startX);
+      const path = ball.getLastPath();
 
-      // Animate ball falling to slot
-      this.animateBallToSlot(slotIndex);
+      // Animate ball bouncing through the pegs along the simulated path
+      await this.animateBallAlongPath(path);
 
       // Call API to record pick
       await this.onBallExit(slotIndex);
@@ -207,20 +212,42 @@ export class PlayerBoardScene extends Phaser.Scene {
     }
   }
 
-  private animateBallToSlot(slotIndex: number): void {
-    if (!this.board) return;
+  private animateBallAlongPath(
+    path: { x: number; y: number }[]
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      if (path.length === 0) {
+        resolve();
+        return;
+      }
 
-    const bounds = this.board.getSlotBounds(slotIndex);
-    const ballGraphics = this.add.graphics();
-    ballGraphics.fillStyle(0xff0000, 1);
-    ballGraphics.fillCircle(bounds.x + bounds.width / 2, 100, 8);
+      const ballGraphics = this.add.graphics();
 
-    // Simple animation (could be enhanced with tweens)
-    this.tweens.add({
-      targets: ballGraphics,
-      y: bounds.y,
-      duration: 300,
-      ease: "Linear",
+      const drawAt = (index: number) => {
+        const point = path[Math.max(0, Math.min(path.length - 1, index))];
+        ballGraphics.clear();
+        ballGraphics.fillStyle(0xff0000, 1);
+        ballGraphics.fillCircle(point.x, point.y, 8);
+      };
+
+      drawAt(0);
+
+      // Roughly two simulation frames per rendered ms, capped so long
+      // simulations don't produce an excessively slow animation.
+      const duration = Math.min(Math.max(path.length * 8, 300), 4000);
+
+      this.tweens.addCounter({
+        from: 0,
+        to: path.length - 1,
+        duration,
+        ease: "Linear",
+        onUpdate: (tween) => {
+          drawAt(Math.round(tween.getValue() ?? 0));
+        },
+        onComplete: () => {
+          resolve();
+        },
+      });
     });
   }
 

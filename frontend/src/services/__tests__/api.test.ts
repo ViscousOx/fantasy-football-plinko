@@ -10,6 +10,7 @@ import {
   Session,
   RosterSlot,
   Player,
+  Position,
 } from "../api";
 
 describe("API Service", () => {
@@ -214,7 +215,7 @@ describe("API Service", () => {
         })
       );
 
-      await expect(getPlayers(1, "INVALID")).rejects.toThrow();
+      await expect(getPlayers(1, "INVALID" as Position)).rejects.toThrow();
     });
   });
 

@@ -8,6 +8,7 @@
  */
 
 import Phaser from "phaser";
+import "./style.css";
 import { BootScene } from "./scenes/BootScene";
 import { SetupScene } from "./scenes/SetupScene";
 import { PositionBoardScene } from "./scenes/PositionBoardScene";

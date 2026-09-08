@@ -71,10 +71,10 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert error state is rendered
-      expect(scene.errorState).toBe(true);
+      expect((scene as any).errorState).toBe(true);
 
       // Assert no PlinkoBoard is constructed
-      expect(scene.board).toBeUndefined();
+      expect((scene as any).board).toBeUndefined();
     });
 
     it("should transition back to PositionBoardScene when no players available", async () => {
@@ -146,10 +146,10 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert PlinkoBoard is created
-      expect(scene.board).toBeDefined();
+      expect((scene as any).board).toBeDefined();
 
       // Assert slot count matches player count
-      expect(scene.board?.slotCount).toBe(mockPlayers.length);
+      expect((scene as any).board?.getSlotCount()).toBe(mockPlayers.length);
     });
 
     it("should render player name labels on slots", async () => {
@@ -170,10 +170,10 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert player labels are created
-      expect(scene.playerLabels).toHaveLength(3);
-      expect(scene.playerLabels).toContain("Saquon Barkley");
-      expect(scene.playerLabels).toContain("Le'Veon Bell");
-      expect(scene.playerLabels).toContain("Joe Mixon");
+      expect((scene as any).playerLabels).toHaveLength(3);
+      expect((scene as any).playerLabels).toContain("Saquon Barkley");
+      expect((scene as any).playerLabels).toContain("Le'Veon Bell");
+      expect((scene as any).playerLabels).toContain("Joe Mixon");
     });
 
     it("should store players for later reference during pick", async () => {
@@ -194,7 +194,7 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert players are stored
-      expect(scene.players).toEqual(mockPlayers);
+      expect((scene as any).players).toEqual(mockPlayers);
     });
   });
 
