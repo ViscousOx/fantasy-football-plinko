@@ -334,4 +334,62 @@ describe("API Service", () => {
       await expect(syncPicks(999)).rejects.toThrow();
     });
   });
+
+  describe("SC-001 Performance: Full Pick Cycle API Budget", () => {
+    it("completes a full pick cycle (recordPositionPick + recordPlayerPick) within 500ms", async () => {
+      const sessionId = 1;
+      const slotId = 1;
+      const playerId = 10;
+
+      // Mock recordPositionPick response
+      const positionPickResponse = { run_id: 5, position: "QB" };
+
+      // Mock recordPlayerPick response
+      const playerPickResponse = {
+        run_id: 6,
+        player: {
+          id: playerId,
+          sleeper_id: "4046",
+          first_name: "Saquon",
+          last_name: "Barkley",
+          position: "QB" as const,
+          team: "NYG",
+          search_rank: 12,
+        },
+        session_complete: false,
+      };
+
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(positionPickResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          })
+        )
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(playerPickResponse), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          })
+        );
+
+      // Measure the full pick cycle
+      const startTime = performance.now();
+
+      await recordPositionPick(sessionId, slotId);
+      const positionPickResult = await recordPlayerPick(
+        sessionId,
+        slotId,
+        playerId
+      );
+
+      const totalDuration = performance.now() - startTime;
+
+      // Should complete within 500ms (SC-001 requirement)
+      expect(totalDuration).toBeLessThan(500);
+
+      // Verify results are correct
+      expect(positionPickResult).toEqual(playerPickResponse);
+    });
+  });
 });
