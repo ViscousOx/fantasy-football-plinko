@@ -24,6 +24,17 @@ interface SceneData {
   position: Position;
 }
 
+/**
+ * Upper bound on how many player openings are rendered on a single board.
+ * The backend returns every undrafted player at a position with no limit,
+ * which for deep pools (e.g. WR) can be 50-100+ players. Rendering that many
+ * slots/pegs on an 800px-wide board causes pegs to overlap into solid bars
+ * (see PlinkoBoard's own density guard) and makes the labels unreadable, so
+ * we cap display to the top-ranked players and let subsequent picks surface
+ * the rest as the pool narrows.
+ */
+const MAX_DISPLAYED_PLAYERS = 15;
+
 export class PlayerBoardScene extends Phaser.Scene {
   private sessionId: number = 0;
   private rosterSlotId: number = 0;
@@ -69,14 +80,22 @@ export class PlayerBoardScene extends Phaser.Scene {
       await api.syncPicks(this.sessionId);
 
       // Step 2: Fetch available players for this position
-      this.players = await api.getPlayers(this.sessionId, this.position);
+      const availablePlayers = await api.getPlayers(
+        this.sessionId,
+        this.position
+      );
 
-      if (this.players.length === 0) {
+      if (availablePlayers.length === 0) {
         // No players available - show error state and return to PositionBoardScene
         this.errorState = true;
         this.renderErrorState();
         return;
       }
+
+      // Cap the number of rendered openings so the board stays playable and
+      // legible even when the full available pool is large (players are
+      // already ordered by search_rank, i.e. best-available first).
+      this.players = availablePlayers.slice(0, MAX_DISPLAYED_PLAYERS);
 
       // Extract player name labels
       this.playerLabels = this.players.map(

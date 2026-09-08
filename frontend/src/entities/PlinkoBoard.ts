@@ -36,9 +36,25 @@ export class PlinkoBoard {
     this.slotCount = slotCount;
     this.width = options.width ?? 800;
     this.height = options.height ?? 600;
-    this.pegsPerRow = options.pegsPerRow ?? slotCount;
-    this.rows = options.rows ?? Math.ceil(Math.log2(slotCount)) + 2;
     this.pegRadius = options.pegRadius ?? 8;
+
+    // Guard against peg rows becoming visually solid bars: once slotCount
+    // (and therefore the requested pegsPerRow) grows large enough that pegs
+    // would have to be spaced closer than ~3x their radius, the circles
+    // overlap and render as a continuous line instead of discrete pegs, and
+    // the ball can no longer pass between them. Decouple the peg column
+    // count from the slot count once that density limit is reached; the
+    // slots below remain independently sized from `slotCount`, so this only
+    // affects the decorative peg layout, not how many openings exist.
+    const requestedPegsPerRow = options.pegsPerRow ?? slotCount;
+    const minPegSpacing = this.pegRadius * 3;
+    const maxPegsPerRow = Math.max(
+      1,
+      Math.floor(this.width / minPegSpacing) - 1
+    );
+    this.pegsPerRow = Math.min(requestedPegsPerRow, maxPegsPerRow);
+
+    this.rows = options.rows ?? Math.ceil(Math.log2(slotCount)) + 2;
 
     this.generatePegs();
     this.generateSlots();
