@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "phaser": "^3.55.2"
+    "phaser": "^3.90.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
