@@ -97,16 +97,20 @@ export class PlayerBoardScene extends Phaser.Scene {
       // already ordered by search_rank, i.e. best-available first).
       this.players = availablePlayers.slice(0, MAX_DISPLAYED_PLAYERS);
 
-      // Extract player name labels
-      this.playerLabels = this.players.map(
-        (p) => `${p.first_name} ${p.last_name}`
-      );
-
       // Create PlinkoBoard with number of slots matching players
       this.board = new PlinkoBoard(this.players.length, {
         width: 800,
         height: 600,
       });
+
+      // Extract player name labels. Once slot count grows large enough that
+      // each slot is too narrow to fit a full "First Last" name without
+      // wrapping past the slot box (see renderBoard's slotHeight), abbreviate
+      // the first name to an initial so labels stay legible and contained.
+      const slotWidth = 800 / this.players.length;
+      this.playerLabels = this.players.map((p) =>
+        this.formatPlayerLabel(p.first_name, p.last_name, slotWidth)
+      );
 
       // Render the board
       this.renderBoard();
@@ -115,6 +119,38 @@ export class PlayerBoardScene extends Phaser.Scene {
       this.errorState = true;
       this.renderErrorState();
     }
+  }
+
+  /**
+   * Format a player's name for display in a slot, abbreviating the first
+   * name to an initial once the slot is too narrow to comfortably fit the
+   * full name on one or two wrapped lines (roughly 7px/char at the smallest
+   * font size used in renderBoard).
+   */
+  private formatPlayerLabel(
+    firstName: string,
+    lastName: string,
+    slotWidth: number
+  ): string {
+    const fullName = `${firstName} ${lastName}`;
+    const narrowSlotThreshold = 90;
+
+    if (slotWidth >= narrowSlotThreshold || firstName.length === 0) {
+      return fullName;
+    }
+
+    return `${firstName[0]}. ${lastName}`;
+  }
+
+  /**
+   * Pick a font size that scales down as slots get narrower, so labels are
+   * more likely to fit within the slot box without excessive wrapping.
+   */
+  private computeFontSize(slotWidth: number): number {
+    if (slotWidth >= 90) return 14;
+    if (slotWidth >= 70) return 12;
+    if (slotWidth >= 55) return 11;
+    return 10;
   }
 
   private renderBoard(): void {
@@ -138,21 +174,28 @@ export class PlayerBoardScene extends Phaser.Scene {
       const bounds = this.board.getSlotBounds(i);
 
       // Draw slot box
+      const slotHeight = 50;
       graphics.lineStyle(2, 0x333333, 1);
-      graphics.strokeRect(bounds.x, bounds.y, bounds.width, 50);
+      graphics.strokeRect(bounds.x, bounds.y, bounds.width, slotHeight);
 
-      // Add player label
-      this.add.text(
-        bounds.x + bounds.width / 2,
-        bounds.y + 25,
-        this.playerLabels[i],
-        {
-          fontSize: "14px",
-          color: "#333333",
-          align: "center",
-          wordWrap: { width: bounds.width - 10 },
-        }
-      );
+      // Add player label, centered within the slot box. `setOrigin(0.5)`
+      // anchors the text's own center (not its top-left corner) to the
+      // given x/y, so it stays centered instead of overflowing to the
+      // right/bottom of the box. Font size shrinks for narrower slots (more
+      // players on the board) to keep names from overflowing vertically.
+      this.add
+        .text(
+          bounds.x + bounds.width / 2,
+          bounds.y + slotHeight / 2,
+          this.playerLabels[i],
+          {
+            fontSize: `${this.computeFontSize(bounds.width)}px`,
+            color: "#333333",
+            align: "center",
+            wordWrap: { width: bounds.width - 8 },
+          }
+        )
+        .setOrigin(0.5);
     }
   }
 

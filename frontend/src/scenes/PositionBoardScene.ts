@@ -101,20 +101,28 @@ export class PositionBoardScene extends Phaser.Scene {
       const bounds = this.board.getSlotBounds(i);
 
       // Draw slot box
+      const slotHeight = 50;
       graphics.lineStyle(2, 0x333333, 1);
-      graphics.strokeRect(bounds.x, bounds.y, bounds.width, 50);
+      graphics.strokeRect(bounds.x, bounds.y, bounds.width, slotHeight);
 
-      // Add position label
-      this.add.text(
-        bounds.x + bounds.width / 2,
-        bounds.y + 25,
-        this.slotLabels[i],
-        {
-          fontSize: "16px",
-          color: "#333333",
-          align: "center",
-        }
-      );
+      // Add position label, centered within the slot box. `setOrigin(0.5)`
+      // anchors the text's own center (not its top-left corner) to the
+      // given x/y, so it stays centered instead of overflowing to the
+      // right/bottom of the box. `wordWrap` keeps long labels from
+      // spilling past the slot's edges.
+      this.add
+        .text(
+          bounds.x + bounds.width / 2,
+          bounds.y + slotHeight / 2,
+          this.slotLabels[i],
+          {
+            fontSize: "16px",
+            color: "#333333",
+            align: "center",
+            wordWrap: { width: bounds.width - 8 },
+          }
+        )
+        .setOrigin(0.5);
     }
   }
 
