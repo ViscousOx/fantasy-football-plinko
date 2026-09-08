@@ -44,6 +44,18 @@ export class PlayerBoardScene extends Phaser.Scene {
   private playerLabels: string[] = [];
   private errorState: boolean = false;
   private isDropping: boolean = false;
+  private isSyncing: boolean = false;
+
+  // Board graphics/labels are torn down and rebuilt every time the
+  // available-player pool is refreshed (initial load or manual sync), since
+  // the slot count/positions can shift as players get drafted elsewhere.
+  private boardGraphics?: Phaser.GameObjects.Graphics;
+  private slotLabelTexts: Phaser.GameObjects.Text[] = [];
+  private dropZone?: Phaser.GameObjects.Graphics;
+
+  private syncButton?: Phaser.GameObjects.Text;
+  private syncStatusText?: Phaser.GameObjects.Text;
+  private lastSyncedAt?: Date;
 
   constructor(sessionId?: number, rosterSlotId?: number, position?: Position) {
     super({ key: "PlayerBoardScene" });
@@ -67,17 +79,32 @@ export class PlayerBoardScene extends Phaser.Scene {
   }
 
   async create(): Promise<void> {
-    await this.initializeBoard();
+    this.setupSyncControls();
+
+    await this.initializeBoard({ isManualSync: false });
 
     if (!this.errorState && this.board) {
       this.setupInteractivity();
     }
   }
 
-  async initializeBoard(): Promise<void> {
+  /**
+   * Fetch the latest available players (optionally re-polling Sleeper for
+   * live draft picks first) and (re)build the board from scratch.
+   *
+   * This is called both on initial scene entry and whenever the user
+   * presses the "Sync" button, since a live Sleeper draft can produce new
+   * picks at any time while this screen is on display - the slot count and
+   * contents may need to shrink/reorder between the initial load and the
+   * moment the user actually drops the ball.
+   */
+  async initializeBoard(
+    { isManualSync }: { isManualSync: boolean } = { isManualSync: false }
+  ): Promise<void> {
     try {
       // Step 1: Sync picks from Sleeper (explicit freshness step)
-      await api.syncPicks(this.sessionId);
+      const syncResult = await api.syncPicks(this.sessionId);
+      this.lastSyncedAt = new Date(syncResult.synced_at);
 
       // Step 2: Fetch available players for this position
       const availablePlayers = await api.getPlayers(
@@ -114,10 +141,101 @@ export class PlayerBoardScene extends Phaser.Scene {
 
       // Render the board
       this.renderBoard();
+      this.updateSyncStatusText(
+        isManualSync
+          ? `Synced - ${this.players.length} available`
+          : undefined
+      );
     } catch (error) {
       console.error("Error initializing player board:", error);
-      this.errorState = true;
-      this.renderErrorState();
+      if (isManualSync) {
+        // Don't nuke an already-playable board just because a manual
+        // re-sync failed transiently (e.g. Sleeper hiccup) - let the user
+        // keep playing with the last-known-good data and try again.
+        this.updateSyncStatusText("Sync failed - showing last known data");
+      } else {
+        this.errorState = true;
+        this.renderErrorState();
+      }
+    }
+  }
+
+  /**
+   * Manual re-sync entry point, wired to the "Sync" button. Re-polls
+   * Sleeper for picks and rebuilds the board in place so the user can
+   * confirm they're not about to drop on a player someone else just
+   * drafted live, without losing their spot on the screen.
+   */
+  private async handleManualSync(): Promise<void> {
+    if (this.isSyncing || this.isDropping || this.errorState) return;
+
+    this.isSyncing = true;
+    this.setDropZoneEnabled(false);
+    this.setSyncButtonEnabled(false);
+    this.updateSyncStatusText("Syncing with Sleeper...");
+
+    try {
+      await this.initializeBoard({ isManualSync: true });
+    } finally {
+      this.isSyncing = false;
+      this.setSyncButtonEnabled(true);
+      if (!this.errorState) {
+        this.setDropZoneEnabled(true);
+      }
+    }
+  }
+
+  /**
+   * Adds the persistent "Sync" button and status label. These live outside
+   * the board-rebuild lifecycle (renderBoard/clearBoard) since they should
+   * stay put across refreshes, not get torn down and recreated.
+   */
+  private setupSyncControls(): void {
+    this.syncButton = this.add
+      .text(800 - 16, 16, "Sync", {
+        fontSize: "16px",
+        color: "#ffffff",
+        backgroundColor: "#28a745",
+        padding: { x: 14, y: 8 },
+        align: "center",
+      })
+      .setOrigin(1, 0)
+      .setInteractive({ useHandCursor: true })
+      .on("pointerdown", () => {
+        this.handleManualSync();
+      });
+
+    this.syncStatusText = this.add
+      .text(800 - 16, 52, "", {
+        fontSize: "12px",
+        color: "#cccccc",
+        align: "right",
+      })
+      .setOrigin(1, 0);
+  }
+
+  private setSyncButtonEnabled(enabled: boolean): void {
+    if (!this.syncButton) return;
+    this.syncButton.setAlpha(enabled ? 1 : 0.5);
+    if (enabled) {
+      this.syncButton.setInteractive({ useHandCursor: true });
+    } else {
+      this.syncButton.disableInteractive();
+    }
+  }
+
+  private updateSyncStatusText(message?: string): void {
+    if (!this.syncStatusText) return;
+
+    if (message) {
+      this.syncStatusText.setText(message);
+      return;
+    }
+
+    if (this.lastSyncedAt) {
+      this.syncStatusText.setText(
+        `Last synced ${this.lastSyncedAt.toLocaleTimeString()}`
+      );
     }
   }
 
@@ -156,10 +274,17 @@ export class PlayerBoardScene extends Phaser.Scene {
   private renderBoard(): void {
     if (!this.board) return;
 
+    // Tear down any previously drawn pegs/slots/labels first. Without this,
+    // re-rendering after a manual sync (or a resync that changes the number
+    // of available players) would draw the new board on top of the old one
+    // instead of replacing it.
+    this.clearBoardGraphics();
+
     const pegs = this.board.getPegPositions();
 
     // Draw pegs
     const graphics = this.add.graphics();
+    this.boardGraphics = graphics;
     graphics.fillStyle(0x888888, 1);
 
     pegs.forEach((row) => {
@@ -183,7 +308,7 @@ export class PlayerBoardScene extends Phaser.Scene {
       // given x/y, so it stays centered instead of overflowing to the
       // right/bottom of the box. Font size shrinks for narrower slots (more
       // players on the board) to keep names from overflowing vertically.
-      this.add
+      const label = this.add
         .text(
           bounds.x + bounds.width / 2,
           bounds.y + slotHeight / 2,
@@ -196,7 +321,15 @@ export class PlayerBoardScene extends Phaser.Scene {
           }
         )
         .setOrigin(0.5);
+      this.slotLabelTexts.push(label);
     }
+  }
+
+  private clearBoardGraphics(): void {
+    this.boardGraphics?.destroy();
+    this.boardGraphics = undefined;
+    this.slotLabelTexts.forEach((label) => label.destroy());
+    this.slotLabelTexts = [];
   }
 
   private renderErrorState(): void {
@@ -246,16 +379,31 @@ export class PlayerBoardScene extends Phaser.Scene {
     );
 
     graphics.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (!this.isDropping) {
+      if (!this.isDropping && !this.isSyncing) {
         this.dropBall(pointer.x);
       }
     });
+
+    this.dropZone = graphics;
+  }
+
+  private setDropZoneEnabled(enabled: boolean): void {
+    if (!this.dropZone) return;
+    if (enabled) {
+      this.dropZone.setInteractive(
+        new Phaser.Geom.Rectangle(0, 0, 800, 600),
+        Phaser.Geom.Rectangle.Contains
+      );
+    } else {
+      this.dropZone.disableInteractive();
+    }
   }
 
   private async dropBall(startX: number): Promise<void> {
-    if (!this.board || this.isDropping) return;
+    if (!this.board || this.isDropping || this.isSyncing) return;
 
     this.isDropping = true;
+    this.setSyncButtonEnabled(false);
 
     try {
       const ball = new PlinkoBall(Math.random() * 1000000);
@@ -271,6 +419,7 @@ export class PlayerBoardScene extends Phaser.Scene {
       console.error("Error dropping ball:", error);
     } finally {
       this.isDropping = false;
+      this.setSyncButtonEnabled(true);
     }
   }
 
@@ -332,6 +481,16 @@ export class PlayerBoardScene extends Phaser.Scene {
     } catch (error) {
       console.error("Error recording player pick:", error);
       this.isDropping = false;
+
+      // The most likely cause of a rejected pick is a 409: someone else
+      // drafted this exact player on Sleeper in the window between our
+      // last sync and this drop. Rather than leaving the user stuck
+      // staring at a stale, unplayable board, automatically re-sync and
+      // rebuild so they can immediately try again with fresh data.
+      this.updateSyncStatusText(
+        "That pick didn't go through (player may already be drafted) - re-syncing..."
+      );
+      await this.handleManualSync();
     }
   }
 }

@@ -10,7 +10,6 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 from app.db import async_session_factory, engine
 from app.models.orm import Base, DraftPicksCache, Player, PlinkoSession, RosterSlot
 from app.services.availability import (
-    BENCH_POSITIONS,
     FLEX_POSITIONS,
     VALID_POSITIONS,
     get_available_players,
@@ -171,7 +170,7 @@ async def test_get_available_players_bench_includes_all_positions_union() -> Non
     positions = {player.position for player in available}
     sleeper_ids = {player.sleeper_id for player in available}
 
-    assert positions.issubset(set(BENCH_POSITIONS))
+    assert positions.issubset(set(FLEX_POSITIONS))
     assert sleeper_ids == {"rb2", "wr1", "te1"}
     assert "rb1" not in sleeper_ids
 

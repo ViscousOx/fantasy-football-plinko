@@ -4,12 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.orm import DraftPicksCache, Player, RosterSlot
 
 FLEX_POSITIONS = ("RB", "WR", "TE")
-# Bench seats can hold a player of any startable position, so treat "BN"
-# the same way "FLEX" is treated: expand it into the full pool instead of
-# matching a single locked position.
-BENCH_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF")
 VALID_POSITIONS = ("QB", "RB", "WR", "TE", "FLEX", "BN", "K", "DEF")
-
 _MULTI_POSITION_SLOTS = {
     "FLEX": FLEX_POSITIONS,
     "BN": FLEX_POSITIONS,
