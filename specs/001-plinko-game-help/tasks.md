@@ -441,7 +441,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Test script exists and fails because `Dockerfile` does not yet exist.
 
-- [ ] Create `.github/scripts/smoke_test.sh` that:
+- [x] Create `.github/scripts/smoke_test.sh` that:
   1. Runs `docker compose up --build -d`.
   2. Polls `http://localhost:8000/healthz` until `200` or 30-second timeout.
   3. Exits non-zero on timeout.
@@ -450,19 +450,19 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: `docker compose up --build` succeeds; smoke test passes; `GET /healthz` returns `200`; `GET /` returns the Vite index.html.
 
-- [ ] Create `Dockerfile` with two stages:
+- [x] Create `Dockerfile` with two stages:
   - **Stage 1** `frontend-build`: `node:20-slim`, runs `npm ci && npm run build` in `frontend/`, outputs `dist/`.
   - **Stage 2** `backend`: `python:3.12-slim`, installs `uv`, runs `uv sync --no-dev`, copies `frontend/dist/` to `backend/static/`.
-- [ ] Mount `backend/static/` via `StaticFiles` in `app/main.py` (serve frontend bundle and catch-all for SPA routing).
-- [ ] Set `CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
+- [x] Mount `backend/static/` via `StaticFiles` in `app/main.py` (serve frontend bundle and catch-all for SPA routing).
+- [x] Set `CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]`.
 
 ### I-3 — Create `docker-compose.yml`
 
 **Acceptance**: `docker compose up` starts the service; named volume persists SQLite across `docker compose restart`.
 
-- [ ] Create `docker-compose.yml` with one service `plinko` exposing port `8000`.
-- [ ] Mount a named volume `plinko_data` at `/data/` inside the container.
-- [ ] Set `DATABASE_URL=sqlite+aiosqlite:////data/plinko.db` as an environment variable.
+- [x] Create `docker-compose.yml` with one service `plinko` exposing port `8000`.
+- [x] Mount a named volume `plinko_data` at `/data/` inside the container.
+- [x] Set `DATABASE_URL=sqlite+aiosqlite:////data/plinko.db` as an environment variable.
 
 ---
 
