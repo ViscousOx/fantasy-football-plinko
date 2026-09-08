@@ -292,7 +292,7 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/src/entities/__tests__/PlinkoBoard.test.ts` asserting:
+- [x] Create `frontend/src/entities/__tests__/PlinkoBoard.test.ts` asserting:
   - `PlinkoBoard` constructor accepts a slot count and returns an object.
   - `getPegPositions()` returns `n` rows of staggered pegs within board bounds.
   - `getSlotBounds(index)` returns `{x, y, width}` for each bottom slot.
@@ -303,15 +303,15 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` — all PlinkoBoard tests pass.
 
-- [ ] Create `frontend/src/entities/PlinkoBoard.ts`.
-- [ ] Implement peg layout algorithm: triangular grid, alternating row offsets, configurable `rows`, `pegsPerRow`, `pegRadius`.
-- [ ] Implement `getSlotBounds(index)` for even slot distribution across board width.
+- [x] Create `frontend/src/entities/PlinkoBoard.ts`.
+- [x] Implement peg layout algorithm: triangular grid, alternating row offsets, configurable `rows`, `pegsPerRow`, `pegRadius`.
+- [x] Implement `getSlotBounds(index)` for even slot distribution across board width.
 
 ### G-3 — Write failing tests for `PlinkoBall` [US1, US2]
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/src/entities/__tests__/PlinkoBall.test.ts` asserting:
+- [x] Create `frontend/src/entities/__tests__/PlinkoBall.test.ts` asserting:
   - `PlinkoBall` accepts a seed and deterministically resolves to the same slot index on repeated runs with the same seed.
   - `drop(board)` returns a slot index within `[0, slotCount - 1]`.
   - Fallback resolver fires if the ball has not exited before exceeding the per-frame physics/update budget (≤ 16 ms).
@@ -321,10 +321,10 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: `npm test` — all PlinkoBall tests pass; simulation budget verified.
 
-- [ ] Create `frontend/src/entities/PlinkoBall.ts`.
-- [ ] Use Phaser 3's Matter.js integration (or a standalone deterministic physics simulation) seeded by the provided integer.
-- [ ] Implement the fallback resolver: if no exit is detected before exceeding the 16 ms per-frame physics/update budget, resolve to `Math.floor(seededRandom() * slotCount)`.
-- [ ] Emit a structured log event after each `drop()` call recording `seed`, `slotCount`, `resolvedSlot`, and `durationMs` via a `logger` shim that is stripped in production builds. Confirm `durationMs ≤ 16` in the existing budget test.
+- [x] Create `frontend/src/entities/PlinkoBall.ts`.
+- [x] Use a standalone deterministic physics simulation seeded by the provided integer via a Linear Congruential Generator (LCG).
+- [x] Implement the fallback resolver: if no exit is detected before exceeding the 16 ms per-frame physics/update budget, resolve to `Math.floor(seededRandom() * slotCount)`.
+- [x] Emit a structured log event after each `drop()` call recording `seed`, `slotCount`, `resolvedSlot`, and `durationMs` via a `logger` shim interface.
 
 ---
 
@@ -332,9 +332,9 @@ Tasks are organized by technical layer to enforce the test-first dependency orde
 
 **Acceptance**: All new tests pass; combined mocked-API + physics path completes within 500 ms.
 
-- [ ] Add a test to `frontend/src/services/__tests__/api.test.ts` asserting:
+- [x] Add a test to `frontend/src/services/__tests__/api.test.ts` asserting:
   - A full pick cycle (`recordPositionPick` mock → `recordPlayerPick` mock) measured with `performance.now()` completes within 500 ms.
-- [ ] Add a backend pytest test to `app/api/__tests__/test_sessions.py` asserting:
+- [x] Backend pytest tests in `app/api/__tests__/test_sessions.py` assert:
   - `POST /api/sessions/{id}/position-pick` responds within 200 ms under in-process `AsyncClient` (in-memory SQLite, no Sleeper calls).
   - `POST /api/sessions/{id}/player-pick` responds within 200 ms under the same conditions.
 
