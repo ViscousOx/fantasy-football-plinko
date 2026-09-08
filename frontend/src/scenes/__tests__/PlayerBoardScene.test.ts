@@ -71,10 +71,10 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert error state is rendered
-      expect(scene.errorState).toBe(true);
+      expect((scene as any).errorState).toBe(true);
 
       // Assert no PlinkoBoard is constructed
-      expect(scene.board).toBeUndefined();
+      expect((scene as any).board).toBeUndefined();
     });
 
     it("should transition back to PositionBoardScene when no players available", async () => {
@@ -146,10 +146,10 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert PlinkoBoard is created
-      expect(scene.board).toBeDefined();
+      expect((scene as any).board).toBeDefined();
 
       // Assert slot count matches player count
-      expect(scene.board?.slotCount).toBe(mockPlayers.length);
+      expect((scene as any).board?.getSlotCount()).toBe(mockPlayers.length);
     });
 
     it("should render player name labels on slots", async () => {
@@ -170,10 +170,10 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert player labels are created
-      expect(scene.playerLabels).toHaveLength(3);
-      expect(scene.playerLabels).toContain("Saquon Barkley");
-      expect(scene.playerLabels).toContain("Le'Veon Bell");
-      expect(scene.playerLabels).toContain("Joe Mixon");
+      expect((scene as any).playerLabels).toHaveLength(3);
+      expect((scene as any).playerLabels).toContain("Saquon Barkley");
+      expect((scene as any).playerLabels).toContain("Le'Veon Bell");
+      expect((scene as any).playerLabels).toContain("Joe Mixon");
     });
 
     it("should store players for later reference during pick", async () => {
@@ -194,7 +194,7 @@ describe("PlayerBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert players are stored
-      expect(scene.players).toEqual(mockPlayers);
+      expect((scene as any).players).toEqual(mockPlayers);
     });
   });
 
@@ -310,6 +310,125 @@ describe("PlayerBoardScene", () => {
       // Verify session_complete flag is passed correctly
       const callArgs = startSceneSpy.mock.calls[0][1];
       expect(callArgs.sessionComplete).toBe(true);
+    });
+
+    it("should re-sync and rebuild the board when the pick is rejected (e.g. player drafted live by someone else)", async () => {
+      // Initial load
+      vi.mocked(api.syncPicks).mockResolvedValueOnce({
+        picks_synced: 5,
+        synced_at: "2026-08-19T14:00:00Z",
+      });
+      vi.mocked(api.getPlayers).mockResolvedValueOnce(mockPlayers);
+
+      // The drop is rejected by the backend (409: already drafted)
+      vi.mocked(api.recordPlayerPick).mockRejectedValueOnce(
+        new Error("API Error: 409 Conflict")
+      );
+
+      // The automatic re-sync triggered by the failure returns a narrowed
+      // pool with the just-drafted player removed.
+      const narrowedPlayers = mockPlayers.slice(1);
+      vi.mocked(api.syncPicks).mockResolvedValueOnce({
+        picks_synced: 6,
+        synced_at: "2026-08-19T14:00:05Z",
+      });
+      vi.mocked(api.getPlayers).mockResolvedValueOnce(narrowedPlayers);
+
+      scene = new PlayerBoardScene(
+        mockSessionId,
+        mockRosterSlotId,
+        mockPosition
+      );
+      await scene.initializeBoard();
+
+      await scene.onBallExit(0);
+
+      // syncPicks/getPlayers should have been called a second time as part
+      // of the automatic recovery re-sync.
+      expect(api.syncPicks).toHaveBeenCalledTimes(2);
+      expect(api.getPlayers).toHaveBeenCalledTimes(2);
+      expect((scene as any).players).toEqual(narrowedPlayers);
+      expect((scene as any).isDropping).toBe(false);
+    });
+  });
+
+  describe("Manual sync", () => {
+    it("should re-poll Sleeper and rebuild the board when manually synced", async () => {
+      vi.mocked(api.syncPicks).mockResolvedValueOnce({
+        picks_synced: 5,
+        synced_at: "2026-08-19T14:00:00Z",
+      });
+      vi.mocked(api.getPlayers).mockResolvedValueOnce(mockPlayers);
+
+      scene = new PlayerBoardScene(
+        mockSessionId,
+        mockRosterSlotId,
+        mockPosition
+      );
+      await scene.initializeBoard();
+      expect((scene as any).players).toHaveLength(3);
+
+      // Someone else drafted Le'Veon Bell live on Sleeper in the meantime.
+      const narrowedPlayers = [mockPlayers[0], mockPlayers[2]];
+      vi.mocked(api.syncPicks).mockResolvedValueOnce({
+        picks_synced: 6,
+        synced_at: "2026-08-19T14:00:10Z",
+      });
+      vi.mocked(api.getPlayers).mockResolvedValueOnce(narrowedPlayers);
+
+      await (scene as any).handleManualSync();
+
+      expect(api.syncPicks).toHaveBeenCalledTimes(2);
+      expect((scene as any).players).toEqual(narrowedPlayers);
+      expect((scene as any).board?.getSlotCount()).toBe(narrowedPlayers.length);
+      expect((scene as any).isSyncing).toBe(false);
+    });
+
+    it("should be a no-op while a ball is already dropping", async () => {
+      vi.mocked(api.syncPicks).mockResolvedValueOnce({
+        picks_synced: 5,
+        synced_at: "2026-08-19T14:00:00Z",
+      });
+      vi.mocked(api.getPlayers).mockResolvedValueOnce(mockPlayers);
+
+      scene = new PlayerBoardScene(
+        mockSessionId,
+        mockRosterSlotId,
+        mockPosition
+      );
+      await scene.initializeBoard();
+      (scene as any).isDropping = true;
+
+      await (scene as any).handleManualSync();
+
+      // Only the initial load's sync call should have happened.
+      expect(api.syncPicks).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep the last-known-good board and surface an error if a manual sync fails", async () => {
+      vi.mocked(api.syncPicks).mockResolvedValueOnce({
+        picks_synced: 5,
+        synced_at: "2026-08-19T14:00:00Z",
+      });
+      vi.mocked(api.getPlayers).mockResolvedValueOnce(mockPlayers);
+
+      scene = new PlayerBoardScene(
+        mockSessionId,
+        mockRosterSlotId,
+        mockPosition
+      );
+      await scene.initializeBoard();
+
+      vi.mocked(api.syncPicks).mockRejectedValueOnce(
+        new Error("API Error: 502 Bad Gateway")
+      );
+
+      await (scene as any).handleManualSync();
+
+      // Board/players stay intact rather than being wiped by the failure.
+      expect((scene as any).errorState).toBe(false);
+      expect((scene as any).players).toEqual(mockPlayers);
+      expect((scene as any).isSyncing).toBe(false);
     });
   });
 });

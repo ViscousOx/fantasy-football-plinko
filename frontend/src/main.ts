@@ -8,6 +8,7 @@
  */
 
 import Phaser from "phaser";
+import "./style.css";
 import { BootScene } from "./scenes/BootScene";
 import { SetupScene } from "./scenes/SetupScene";
 import { PositionBoardScene } from "./scenes/PositionBoardScene";
@@ -19,6 +20,9 @@ const config: Phaser.Types.Core.GameConfig = {
   width: 800,
   height: 600,
   parent: "app",
+  dom: {
+    createContainer: true,
+  },
   physics: {
     default: "matter",
     matter: {

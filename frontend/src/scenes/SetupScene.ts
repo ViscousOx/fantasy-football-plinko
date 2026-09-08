@@ -25,17 +25,6 @@ export class SetupScene extends Phaser.Scene {
     // Clear any previous session
     localStorage.removeItem("session_id");
 
-    // Create a centered container for the form
-    const { width, height } = this.cameras.main;
-    const containerX = width / 2;
-    const containerY = height / 2;
-
-    // Create DOM container
-    this.domElement = this.add
-      .dom(containerX, containerY, "div")
-      .setOrigin(0.5, 0.5)
-      .setDepth(100) as unknown as HTMLDivElement;
-
     // Build the form HTML
     const formHTML = `
       <div style="

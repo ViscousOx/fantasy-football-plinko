@@ -26,6 +26,9 @@ PICKS_FIXTURE = [
 PLAYERS_FIXTURE = {
     "4046": {"player_id": "4046", "first_name": "Saquon", "last_name": "Barkley", "position": "RB", "team": "NYG", "status": "Active", "search_rank": 1},
     "1408": {"player_id": "1408", "first_name": "Le'Veon", "last_name": "Bell", "position": "RB", "team": "PIT", "status": "Active", "search_rank": 3},
+    # Team defenses never carry a "status" field from Sleeper since they
+    # aren't individual players; they must still be treated as active.
+    "HOU": {"player_id": "HOU", "first_name": "Houston", "last_name": "Texans", "position": "DEF", "team": "HOU", "search_rank": 50},
 }
 
 
@@ -101,6 +104,27 @@ async def test_create_session_201(mock_draft, mock_picks, mock_players, client):
     positions = [s["position"] for s in body["roster_slots"]]
     assert positions == ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "BN", "BN", "K", "DEF"]
     assert all(s["filled_at"] is None for s in body["roster_slots"])
+
+
+@patch("app.api.sessions.fetch_players", new_callable=AsyncMock)
+@patch("app.api.sessions.fetch_picks", new_callable=AsyncMock)
+@patch("app.api.sessions.fetch_draft", new_callable=AsyncMock)
+async def test_create_session_marks_team_defenses_active(
+    mock_draft, mock_picks, mock_players, client, session_factory
+):
+    mock_draft.return_value = DRAFT_FIXTURE
+    mock_picks.return_value = PICKS_FIXTURE
+    mock_players.return_value = PLAYERS_FIXTURE
+
+    resp = await client.post("/api/sessions", json={"sleeper_draft_id": "257270643320426496"})
+    assert resp.status_code == 201, resp.text
+
+    async with session_factory() as db:
+        houston = (
+            await db.execute(select(Player).where(Player.sleeper_id == "HOU"))
+        ).scalar_one()
+        assert houston.position == "DEF"
+        assert houston.active is True
 
 
 @patch("app.api.sessions.fetch_players", new_callable=AsyncMock)
@@ -304,6 +328,24 @@ async def test_sync_200_returns_synced_count(mock_picks, client, session_factory
     body = resp.json()
     assert body["picks_synced"] == 2
     assert body["synced_at"] is not None
+
+
+@patch("app.api.sessions.fetch_picks", new_callable=AsyncMock)
+async def test_sync_calls_fetch_picks_with_sleeper_draft_id_not_internal_id(
+    mock_picks, client, session_factory
+):
+    # Regression test: sync_picks must call Sleeper with the session's
+    # sleeper_draft_id, not the internal integer session_id, otherwise
+    # every sync 404s against Sleeper (since draft ids like "1" don't
+    # exist), which previously broke player availability for every
+    # position, not just ones with no real players.
+    session_id, _ = await _seed_session(session_factory)
+    mock_picks.return_value = []
+
+    resp = await client.post(f"/api/sessions/{session_id}/sync", json={})
+
+    assert resp.status_code == 200, resp.text
+    mock_picks.assert_awaited_once_with("257270643320426496")
 
 
 @patch("app.api.sessions.fetch_picks", new_callable=AsyncMock)

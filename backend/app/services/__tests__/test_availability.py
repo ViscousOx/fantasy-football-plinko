@@ -3,13 +3,13 @@ from datetime import UTC, datetime
 
 import pytest
 import respx
+from sqlalchemy import select
 
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 
 from app.db import async_session_factory, engine
-from app.models.orm import Base, DraftPicksCache, Player, PlinkoSession
+from app.models.orm import Base, DraftPicksCache, Player, PlinkoSession, RosterSlot
 from app.services.availability import (
-    BENCH_POSITIONS,
     FLEX_POSITIONS,
     VALID_POSITIONS,
     get_available_players,
@@ -118,6 +118,35 @@ async def test_get_available_players_filters_by_position_and_excludes_drafted() 
     assert all(player.position == "RB" for player in available)
 
 
+async def test_get_available_players_excludes_players_already_picked_in_session() -> None:
+    """Once a player has been awarded to a roster slot via the player board
+    (not the real Sleeper draft), they must disappear from every future
+    availability lookup in this session. Otherwise the same player can be
+    re-selected for another slot, and eventually every remaining ball drop
+    can only land on an already-taken player, softlocking the board.
+    """
+    session_id = await _seed_availability_fixtures()
+
+    async with async_session_factory() as db:
+        rb2 = (
+            await db.execute(select(Player).where(Player.sleeper_id == "rb2"))
+        ).scalar_one()
+        db.add(
+            RosterSlot(
+                session_id=session_id,
+                position="RB",
+                slot_order=1,
+                player_id=rb2.id,
+                filled_at=datetime.now(UTC),
+            )
+        )
+        await db.commit()
+
+        available = await get_available_players(db, session_id, "RB")
+
+    assert available == []
+
+
 async def test_get_available_players_flex_includes_rb_wr_te_union() -> None:
     session_id = await _seed_availability_fixtures()
 
@@ -141,7 +170,7 @@ async def test_get_available_players_bench_includes_all_positions_union() -> Non
     positions = {player.position for player in available}
     sleeper_ids = {player.sleeper_id for player in available}
 
-    assert positions.issubset(set(BENCH_POSITIONS))
+    assert positions.issubset(set(FLEX_POSITIONS))
     assert sleeper_ids == {"rb2", "wr1", "te1"}
     assert "rb1" not in sleeper_ids
 

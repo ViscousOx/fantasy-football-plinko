@@ -60,10 +60,10 @@ describe("PositionBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert that no PlinkoBoard constructor is called (draft is complete)
-      expect(scene.board).toBeUndefined();
+      expect((scene as any).board).toBeUndefined();
 
       // Assert that draft-complete state is rendered
-      expect(scene.draftComplete).toBe(true);
+      expect((scene as any).draftComplete).toBe(true);
     });
   });
 
@@ -76,10 +76,10 @@ describe("PositionBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert PlinkoBoard is created
-      expect(scene.board).toBeDefined();
+      expect((scene as any).board).toBeDefined();
 
       // Assert slot count matches open slots
-      expect(scene.board?.slotCount).toBe(3);
+      expect((scene as any).board?.getSlotCount()).toBe(3);
     });
 
     it("should render slot labels with position names", async () => {
@@ -90,10 +90,10 @@ describe("PositionBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert slot labels are created for each position
-      expect(scene.slotLabels).toHaveLength(3);
-      expect(scene.slotLabels).toContain("QB");
-      expect(scene.slotLabels).toContain("RB");
-      expect(scene.slotLabels).toContain("WR");
+      expect((scene as any).slotLabels).toHaveLength(3);
+      expect((scene as any).slotLabels).toContain("QB");
+      expect((scene as any).slotLabels).toContain("RB");
+      expect((scene as any).slotLabels).toContain("WR");
     });
 
     it("should store open slots for later reference during pick", async () => {
@@ -104,7 +104,7 @@ describe("PositionBoardScene", () => {
       await scene.initializeBoard();
 
       // Assert open slots are stored
-      expect(scene.openSlots).toEqual(mockOpenSlots);
+      expect((scene as any).openSlots).toEqual(mockOpenSlots);
     });
   });
 

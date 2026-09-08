@@ -1,8 +1,10 @@
 import logging
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 
 from app.api.picks import router as picks_router
 from app.api.players import router as players_router
@@ -49,3 +51,9 @@ async def log_requests(request: Request, call_next):
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# Serve static frontend files (SPA)
+static_dir = Path(__file__).parent.parent / "static"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")

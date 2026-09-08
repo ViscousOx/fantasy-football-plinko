@@ -1,0 +1,18 @@
+services:
+  plinko:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fantasy-football-plinko
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////data/plinko.db
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - plinko_data:/data/
+    restart: unless-stopped
+
+volumes:
+  plinko_data:
+    driver: local
