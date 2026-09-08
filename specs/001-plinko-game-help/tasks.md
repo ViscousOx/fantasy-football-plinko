@@ -350,7 +350,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Tests collected; all fail with `Cannot find module`.
 
-- [ ] Create `frontend/src/scenes/__tests__/PositionBoardScene.test.ts` using Vitest with mocked `api.*` calls (`vi.mock('../services/api')`):
+- [x] Create `frontend/src/scenes/__tests__/PositionBoardScene.test.ts` using Vitest with mocked `api.*` calls (`vi.mock('../services/api')`):
   - **Draft-complete guard**: `getOpenPositions` returns `[]` → scene calls no `PlinkoBoard` constructor and renders draft-complete state.
   - **Normal load**: `getOpenPositions` returns N slots → `PlinkoBoard` constructed with `slotCount = N`; slot labels match position names.
   - **Post-drop API call**: after ball exits slot index `i`, `recordPositionPick` is called with `openSlots[i].id`; scene transitions to `PlayerBoardScene` with correct `position`.
@@ -359,7 +359,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/src/scenes/__tests__/PlayerBoardScene.test.ts`:
+- [x] Create `frontend/src/scenes/__tests__/PlayerBoardScene.test.ts`:
   - **Empty-player guard**: `getPlayers` returns `[]` → scene shows error state and does not construct a `PlinkoBoard`; scene transitions back to `PositionBoardScene`.
   - **Normal load**: `getPlayers` returns M players → `PlinkoBoard` constructed with `slotCount = M`; player labels rendered.
   - **Post-drop API call**: `recordPlayerPick` called with correct `roster_slot_id` and `players[slotIndex].id`; transitions to `CongratsScene`.
@@ -368,7 +368,7 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Tests collected; all fail.
 
-- [ ] Create `frontend/src/scenes/__tests__/CongratsScene.test.ts`:
+- [x] Create `frontend/src/scenes/__tests__/CongratsScene.test.ts`:
   - **Normal variant**: scene receives `{ player, session_complete: false }` → displays `"Draft [First Last]!"` text; dismiss button starts `PositionBoardScene`.
   - **Complete variant**: `session_complete: true` → displays `"Draft Complete!"` text; dismiss button does **not** start `PositionBoardScene`.
 
@@ -380,58 +380,58 @@ These tests are written **before** the corresponding H-1–H-6 implementation ta
 
 **Acceptance**: Manual smoke test: app loads in browser; existing `session_id` from `localStorage` is forwarded to `SetupScene` or skipped.
 
-- [ ] Create `frontend/src/scenes/BootScene.ts`.
-- [ ] Preload any graphic/audio assets (placeholder sprites acceptable at this stage).
-- [ ] Read `session_id` from `localStorage`; pass to next scene via `scene.start("Setup", { session_id })`.
+- [x] Create `frontend/src/scenes/BootScene.ts`.
+- [x] Preload any graphic/audio assets (placeholder sprites acceptable at this stage).
+- [x] Read `session_id` from `localStorage`; pass to next scene via `scene.start("Setup", { session_id })`.
 
 ### H-2 — `SetupScene` — draft ID entry form [US4]
 
 **Acceptance**: User can type a Sleeper draft ID, submit the form, and the app calls `POST /api/sessions`.
 
-- [ ] Create `frontend/src/scenes/SetupScene.ts`.
-- [ ] Render a DOM input and submit button using Phaser's DOM layer (`this.add.dom`).
-- [ ] On submit, call `api.createSession(draft_id)`, store `session.id` in `localStorage`, then start `PositionBoardScene`.
-- [ ] Show an error message if the API returns `404` or `502`.
+- [x] Create `frontend/src/scenes/SetupScene.ts`.
+- [x] Render a DOM input and submit button using Phaser's DOM layer (`this.add.dom`).
+- [x] On submit, call `api.createSession(draft_id)`, store `session.id` in `localStorage`, then start `PositionBoardScene`.
+- [x] Show an error message if the API returns `404` or `502`.
 
 ### H-3 — `PositionBoardScene` — first plinko board [US1]
 
 **Acceptance**: `npm test` — all `PositionBoardScene.test.ts` tests pass; manual smoke test confirms board renders in browser with correct number of slots matching open roster positions and ball drop resolves and transitions to player board.
 
-- [ ] Create `frontend/src/scenes/PositionBoardScene.ts`.
-- [ ] On `create`, call `api.getOpenPositions(session_id)` and construct a `PlinkoBoard` with `slotCount = openSlots.length`.
-- [ ] Render pegs (circles) and slot labels (position names) using Phaser graphics.
-- [ ] On user click/tap, instantiate `PlinkoBall`, call `drop(board)`, animate ball falling through pegs.
-- [ ] On ball exit, call `api.recordPositionPick(session_id, openSlots[slotIndex].id)`.
-- [ ] Transition to `PlayerBoardScene` passing `{session_id, roster_slot_id, position}`.
-- [ ] If `getOpenPositions` returns `[]`, show draft-complete state (FR-012).
+- [x] Create `frontend/src/scenes/PositionBoardScene.ts`.
+- [x] On `create`, call `api.getOpenPositions(session_id)` and construct a `PlinkoBoard` with `slotCount = openSlots.length`.
+- [x] Render pegs (circles) and slot labels (position names) using Phaser graphics.
+- [x] On user click/tap, instantiate `PlinkoBall`, call `drop(board)`, animate ball falling through pegs.
+- [x] On ball exit, call `api.recordPositionPick(session_id, openSlots[slotIndex].id)`.
+- [x] Transition to `PlayerBoardScene` passing `{session_id, roster_slot_id, position}`.
+- [x] If `getOpenPositions` returns `[]`, show draft-complete state (FR-012).
 
 ### H-4 — `PlayerBoardScene` — second plinko board [US2]
 
 **Acceptance**: `npm test` — all `PlayerBoardScene.test.ts` tests pass; manual smoke test confirms player board renders with available players and ball drop shows `CongratsScene` with correct player name.
 
-- [ ] Create `frontend/src/scenes/PlayerBoardScene.ts`.
-- [ ] On `create`, call `api.syncPicks(session_id)` as the explicit freshness step, then `api.getPlayers(session_id, position)`.
-- [ ] Construct `PlinkoBoard` with `slotCount = players.length` (cap display at a configurable max if many players).
-- [ ] Render player name labels on slots.
-- [ ] On ball exit, call `api.recordPlayerPick(session_id, roster_slot_id, players[slotIndex].id)`.
-- [ ] Transition to `CongratsScene` passing player data and `session_complete` flag.
-- [ ] Handle edge case: if `players.length === 0`, show error and return to `PositionBoardScene` (FR spec: invalid state guard).
+- [x] Create `frontend/src/scenes/PlayerBoardScene.ts`.
+- [x] On `create`, call `api.syncPicks(session_id)` as the explicit freshness step, then `api.getPlayers(session_id, position)`.
+- [x] Construct `PlinkoBoard` with `slotCount = players.length` (cap display at a configurable max if many players).
+- [x] Render player name labels on slots.
+- [x] On ball exit, call `api.recordPlayerPick(session_id, roster_slot_id, players[slotIndex].id)`.
+- [x] Transition to `CongratsScene` passing player data and `session_complete` flag.
+- [x] Handle edge case: if `players.length === 0`, show error and return to `PositionBoardScene` (FR spec: invalid state guard).
 
 ### H-5 — `CongratsScene` — draft confirmation overlay [US2]
 
 **Acceptance**: `npm test` — all `CongratsScene.test.ts` tests pass; manual smoke test confirms player name is displayed and dismissing returns to `PositionBoardScene` or shows draft-complete message.
 
-- [ ] Create `frontend/src/scenes/CongratsScene.ts`.
-- [ ] Display "Draft [First Last]!" text prominently.
-- [ ] Show "Draft Complete!" variant when `session_complete === true`.
-- [ ] Provide a dismiss button; on dismiss start `PositionBoardScene` (unless complete).
+- [x] Create `frontend/src/scenes/CongratsScene.ts`.
+- [x] Display "Draft [First Last]!" text prominently.
+- [x] Show "Draft Complete!" variant when `session_complete === true`.
+- [x] Provide a dismiss button; on dismiss start `PositionBoardScene` (unless complete).
 
 ### H-6 — `main.ts` — Phaser bootstrap
 
 **Acceptance**: `npm run dev` renders the game in Chrome/Firefox without console errors.
 
-- [ ] Create `frontend/src/main.ts` instantiating `Phaser.Game` with `Matter` physics, all scenes registered, and responsive canvas sizing.
-- [ ] Create `frontend/index.html` loading the Vite entry point.
+- [x] Create `frontend/src/main.ts` instantiating `Phaser.Game` with `Matter` physics, all scenes registered, and responsive canvas sizing.
+- [x] Create `frontend/index.html` loading the Vite entry point.
 
 ---
 
