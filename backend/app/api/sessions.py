@@ -28,6 +28,16 @@ SLOT_SETTINGS_KEYS = {
 }
 
 
+def _is_player_active(data: dict) -> bool:
+    # Team defenses (DEF) are not individual players and never carry a
+    # "status" field from Sleeper, so the plain status == "Active" check
+    # would mark every defense inactive and make the DEF roster slot
+    # permanently unfillable. Treat any DEF entry as active instead.
+    if data.get("position") == "DEF":
+        return True
+    return data.get("status") == "Active"
+
+
 async def _upsert_players(players: dict, db: AsyncSession) -> None:
     for sleeper_id, data in players.items():
         if not isinstance(data, dict):
@@ -38,7 +48,7 @@ async def _upsert_players(players: dict, db: AsyncSession) -> None:
             last_name=data.get("last_name"),
             position=data.get("position"),
             team=data.get("team"),
-            active=data.get("status") == "Active",
+            active=_is_player_active(data),
             search_rank=data.get("search_rank"),
             synced_at=datetime.now(UTC),
         )
@@ -188,12 +198,14 @@ async def get_open_positions(
 async def sync_picks(
     session_id: int, db: AsyncSession = Depends(get_db_session)
 ) -> dict:
-    await _load_session(session_id, db)
+    session = await _load_session(session_id, db)
 
     synced_at = datetime.now(UTC)
     cached_count = 0
     try:
-        picks = await fetch_picks(session_id)
+        # Must use the real Sleeper draft ID here, not our internal
+        # session_id, otherwise every sync 404s against Sleeper's API.
+        picks = await fetch_picks(session.sleeper_draft_id)
     except HTTPException as exc:
         if exc.status_code == 502:
             result = await db.execute(
